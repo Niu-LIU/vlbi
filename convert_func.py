@@ -2,6 +2,7 @@ from astropy.time import Time
 
 __all__ = ["RA_conv", "DC_conv", "date2jyear", "date2mjd"]
 
+# Add a comment for test 
 
 def RA_conv(RAstr):
     """Convert right ascension string of HH_MM_SS.ssssssss into float.
