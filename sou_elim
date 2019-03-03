@@ -1,0 +1,13 @@
+#########################################################################
+# File Name: sou_elim.sh
+# Author: Neo
+# mail: liuniu@smail.nju.edu.cn
+# Created Time: Thu Apr  5 15:53:40 2018
+#########################################################################
+#!/bin/bash
+
+if [ -e $1 ]
+then
+	cp $1 $1.bk
+	sed -i '' '/Obs_used:       0/d' $1
+fi
