@@ -28,11 +28,12 @@ velocities are also written.
    1-8     A8     --    record type identifier: STA_GCX:
    11-25   A15    --    station name. Station name consist of 8-letters station
                         acronym and 6-letter epoch in format yymmdd. Epoch
-                        is attached to the name only if the station had episodic
-                        motion. Fields between the last letter of the station
-                        name and the first letter of epoch are filled by _.
-                        If the station didn't have episodic name then the space
-                        after the last letter of the station name is left blank.
+                        is attached to the name only if the station had
+                        episodic motion. Fields between the last letter of the
+                        station name and the first letter of epoch are filled
+                        by _. If the station didn't have episodic name then
+                        the space after the last letter of the station name is
+                        left blank.
    28-29   A2     --    component identifier. One of "X:", "Y:" or "Z:"
    31-45   F15.2  mm    value of X-component of station position.
    50-59   F10.3  mm    formal uncertainty of X-component of station position.
@@ -58,11 +59,12 @@ velocities are also written.
    1-8     A8     --    record type identifier: STA_GCU:
    11-25   A15    --    station name. Station name consist of 8-letters station
                         acronym and 6-letter epoch in format yymmdd. Epoch
-                        is attached to the name only if the station had episodic
-                        motion. Fields between the last letter of the station
-                        name and the first letter of epoch are filled by _.
-                        If the station didn't have episodic name then the space
-                        after the last letter of the station name is left blank.
+                        is attached to the name only if the station had
+                        episodic motion. Fields between the last letter of the
+                        station name and the first letter of epoch are filled
+                        by _. If the station didn't have episodic name then
+                        the space after the last letter of the station name is
+                        left blank.
    28-29   A2     --    component identifier. One of "U:", "E:" or "N:"
    31-45   F15.2  mm    value of U-component of station position.
    50-59   F10.3  mm    formal uncertainty of U-component of station position.
@@ -80,11 +82,12 @@ velocities are also written.
    1-8     A8     --    record type identifier: STA_CRL:
    11-25   A15    --    station name. Station name consist of 8-letters station
                         acronym and 6-letter epoch in format yymmdd. Epoch
-                        is attached to the name only if the station had episodic
-                        motion. Fields between the last letter of the station
-                        name and the first letter of epoch are filled by _.
-                        If the station didn't have episodic name then the space
-                        after the last letter of the station name is left blank.
+                        is attached to the name only if the station had
+                        episodic motion. Fields between the last letter of the
+                        station name and the first letter of epoch are filled
+                        by _. If the station didn't have episodic name then
+                        the space after the last letter of the station name is
+                        left blank.
    31-36   F6.3   d/l   Correlation between X-position and Y-position
    38-43   F6.3   d/l   Correlation between X-position and Z-position
    45-50   F6.3   d/l   Correlation between Y-position and Z-position
@@ -103,234 +106,367 @@ velocities are also written.
 
 """
 
+from astropy.table import Table, join
+from astropy import units as u
 import numpy as np
+import os
 import sys
-from time_conv import date2year
+from .convert_func import date2jyear
+
+
+__all__ = ["read_sta"]
 
 
 # ------------------------------  FUNCTIONS  ---------------------------
-def read_sta(dataflea):
-    '''Retrieve the result from .lso file.
+def read_sta_gcx(gcx_file):
+    '''Retrieve cartesian components of the vector of station positions.
 
     Parameters
     ----------
-    datafile : string
+    gcx_file : string
         name of data file
 
     Returns
     ----------
-    staname : string
-        name of station
-    X : array, float
-        X component
-    Y : array, float
-        Y component
-    Z : array, float
-        Z component
-    X_err : array, float
-        formal uncertainty of X component
-    Y_err : array, float
-        formal uncertainty of Y component
-    Z_err : array, float
-        formal uncertainty of Z component
-    U : array, float
-        U component
-    E : array, float
-        E component
-    N : array, float
-        N component
-    U_err : array, float
-        formal uncertainty of U component
-    E_err : array, float
-        formal uncertainty of E component
-    N_err : array, float
-        formal uncertainty of N component
-    ObsUse : array,
-        Number of used observations of this source
-    ObsTot : array, int
-        Total number of observations of this source
-    SesUse : array, int
-        Number of used sessions for this source
-    SesTot : array, int
-        Total number of sessions for this source
-    DateBeg : array, float
-        Epoch of the first observation
-    DateEnd : array, float
-        Epoch of the last observation
+    sta_gcx : astropy.table object
+     |__
+        station : string
+            name of station
+        x : array, float
+            X component
+        y : array, float
+            Y component
+        z : array, float
+            Z component
+        x_err : array, float
+            formal uncertainty of X component
+        y_err : array, float
+            formal uncertainty of Y component
+        z_err : array, float
+            formal uncertainty of Z component
+        used_obs : array,
+            Number of used observations of this source
+        total_obs : array, int
+            Total number of observations of this source
+        used_sess : array, int
+            Number of used sessions for this source
+        yotal_sess : array, int
+            Total number of sessions for this source
+        beg_date : array, float
+            Epoch of the first observation
+        end_date : array, float
+            Epoch of the last observation
     '''
 
-    # empty list for store data
-    staname = []
-    # XYZ
-    X = []
-    X_err = []
-    Y = []
-    Y_err = []
-    Z = []
-    Z_err = []
-    # UEN
-    U = []
-    U_err = []
-    E = []
-    E_err = []
-    N = []
-    N_err = []
-    #
-    ObsUse = []
-    ObsTot = []
-    SesUse = []
-    SesTot = []
-    DateBeg = []
-    DateEnd = []
-    # Correlation
-    XpYp = []
-    XpZp = []
-    YpZp = []
-    XpXv = []
-    YpXv = []
-    ZpXv = []
-    XpYv = []
-    YpYv = []
-    ZpYv = []
-    XvYv = []
-    XpZv = []
-    YpZv = []
-    ZpZv = []
-    XvZv = []
-    YvZv = []
+    # Check if the input file exists
+    if not os.path.exists(gcx_file):
+        print("Couldn't find the input file", gcx_file)
+        sys.exit()
 
-    for line in open(datafile, 'r'):
-        if line[0] != '#':
-            if line[:7] == 'STA_GCX':
-                staname.append(line[10:25].rstrip())
-                X.append(float(line[30:45]))
-                X_err.append(float(line[49:59]))
-                Y.append(float(line[64:79]))
-                Y_err.append(float(line[83:93]))
-                Z.append(float(line[98:113]))
-                Z_err.append(float(line[117:127]))
-                ObsUse.append(int(line[138:145]))
-                ObsTot.append(int(line[155:162]))
-                SesUse.append(int(line[173:178]))
-                SesTot.append(int(line[188:193]))
-                DateBeg.append(date2year(line[204:214]))
-                DateEnd.append(date2year(line[225:235]))
-            elif line[:7] == 'STA_GCU':
-                U.append(float(line[30:45]))
-                U_err.append(float(line[49:59]))
-                E.append(float(line[64:79]))
-                E_err.append(float(line[83:93]))
-                N.append(float(line[98:113]))
-                N_err.append(float(line[117:127]))
-            elif line[:7] == 'STA_CRL':
-                XpYp.append(float(line[30:36]))
-                XpZp.append(float(line[37:43]))
-                YpZp.append(float(line[44:50]))
-                XpXv.append(float(line[51:57]))
-                YpXv.append(float(line[59:64]))
-                ZpXv.append(float(line[65:71]))
-                XpYv.append(float(line[72:78]))
-                YpYv.append(float(line[79:85]))
-                ZpYv.append(float(line[86:92]))
-                XvYv.append(float(line[93:99]))
-                XpZv.append(float(line[100:106]))
-                YpZv.append(float(line[107:113]))
-                ZpZv.append(float(line[114:120]))
-                XvZv.append(float(line[121:127]))
-                YvZv.append(float(line[128:134]))
-            else:
-                print("Something must be wrong! Please check your file")
-                exit()
+    sta_gcx = Table.read(gcx_file,
+                         format="ascii.fixed_width_no_header",
+                         names=["station",
+                                "x", "x_err", "y", "y_err", "z", "z_err",
+                                "used_obs", "total_obs", "used_sess",
+                                "total_sess", "beg_date", "end_date"],
+                         col_starts=[10, 30, 49, 64, 83, 98, 117, 138, 155,
+                                     173, 188, 204, 225],
+                         col_ends=[25, 45, 59, 79, 93, 113, 127, 145, 162,
+                                   178, 193, 214, 235])
 
-    # List -> array, a rather stupid way.
-    staname = np.array(staname)
-    # XYZ
-    X = np.array(X)
-    X_err = np.array(X_err)
-    Y = np.array(Y)
-    Y_err = np.array(Y_err)
-    Z = np.array(Z)
-    Z_err = np.array(Z_err)
-    # UEN
-    U = np.array(U)
-    U_err = np.array(U_err)
-    E = np.array(E)
-    E_err = np.array(E_err)
-    N = np.array(N)
-    N_err = np.array(N_err)
-    #
-    ObsUse = np.array(ObsUse)
-    ObsTot = np.array(ObsTot)
-    SesUse = np.array(SesUse)
-    SesTot = np.array(SesTot)
-    DateBeg = np.array(DateBeg)
-    DateEnd = np.array(DateEnd)
-    # Correlation
-    XpYp = np.array(XpYp)
-    XpZp = np.array(XpZp)
-    YpZp = np.array(YpZp)
-    XpXv = np.array(XpXv)
-    YpXv = np.array(YpXv)
-    ZpXv = np.array(ZpXv)
-    XpYv = np.array(XpYv)
-    YpYv = np.array(YpYv)
-    ZpYv = np.array(ZpYv)
-    XvYv = np.array(XvYv)
-    XpZv = np.array(XpZv)
-    YpZv = np.array(YpZv)
-    ZpZv = np.array(ZpZv)
-    XvZv = np.array(XvZv)
-    YvZv = np.array(YvZv)
+    # Filling the missing values
+    sta_gcx["beg_date"] = sta_gcx["beg_date"].filled(" "*10)
+    sta_gcx["end_date"] = sta_gcx["end_date"].filled(" "*10)
 
-    return [staname, X, X_err, Y, Y_err, Z, Z_err,
-            U, U_err, E, E_err, N, N_err,
-            ObsUse, ObsTot, SesUse, SesTot, DateBeg, DateEnd,
-            XpYp, XpZp, YpZp, XpXv, YpXv, ZpXv,
-            XpYv, YpYv, ZpYv, XvYv, XpZv, YpZv, ZpZv, XvZv, YvZv]
+    # # Date transformation
+    beg_date_list = [date2jyear(beg_datei)
+                     for beg_datei in sta_gcx["beg_date"]]
+    sta_gcx["beg_date"] = beg_date_list
+
+    end_date_list = [date2jyear(end_datei)
+                     for end_datei in sta_gcx["end_date"]]
+    sta_gcx["end_date"] = end_date_list
+
+    # Add information for units
+    sta_gcx["x"].unit = u.m / 1000
+    sta_gcx["y"].unit = u.m / 1000
+    sta_gcx["z"].unit = u.m / 1000
+    sta_gcx["x_err"].unit = u.m / 1000
+    sta_gcx["y_err"].unit = u.m / 1000
+    sta_gcx["z_err"].unit = u.m / 1000
+    sta_gcx["beg_date"].unit = u.yr
+    sta_gcx["end_date"].unit = u.yr
+
+    return sta_gcx
 
 
-# # Retrieve estimates.
-# if len(sys.argv) == 1:
-#     datafile = 'result/test.sta'
-# else:
-#     datafile = sys.argv[1]
-# [staname, X, X_err, Y, Y_err, Z, Z_err,
-#  U, U_err, E, E_err, N, N_err,
-#  ObsUse, ObsTot, SesUse, SesTot, DateBeg, DateEnd,
-#  XpYp, XpZp, YpZp, XpXv, YpXv, ZpXv,
-#  XpYv, YpYv, ZpYv, XvYv, XpZv, YpZv, ZpZv, XvZv, YvZv] = read_sta(datafile)
-# print(staname[0],
-#       X[0],
-#       X_err[0],
-#       Y[0],
-#       Y_err[0],
-#       Z[0],
-#       Z_err[0],
-#       U[0],
-#       U_err[0],
-#       E[0],
-#       E_err[0],
-#       N[0],
-#       N_err[0],
-#       ObsUse[0],
-#       ObsTot[0],
-#       SesUse[0],
-#       SesTot[0],
-#       DateBeg[0],
-#       DateEnd[0],
-#       XpYp[0],
-#       XpZp[0],
-#       YpZp[0],
-#       XpXv[0],
-#       YpXv[0],
-#       ZpXv[0],
-#       XpYv[0],
-#       YpYv[0],
-#       ZpYv[0],
-#       XvYv[0],
-#       XpZv[0],
-#       YpZv[0],
-#       ZpZv[0],
-#       XvZv[0],
-#       YvZv[0])
+def read_sta_gcu(gcu_file):
+    '''Retrievel local topocentric components of station positions.
+
+    Parameters
+    ----------
+    gcu_file : string
+        name of data file
+
+    Returns
+    ----------
+    sta_gcx : astropy.table object
+     |__
+        station : string
+            name of station
+        u : array, float
+            U component
+        e : array, float
+            E component
+        n : array, float
+            N component
+        u_err : array, float
+            formal uncertainty of U component
+        e_err : array, float
+            formal uncertainty of E component
+        n_err : array, float
+            formal uncertainty of N component
+    '''
+
+    # Check if the input file exists
+    if not os.path.exists(gcu_file):
+        print("Couldn't find the input file", gcu_file)
+        sys.exit()
+
+    sta_gcu = Table.read(gcu_file,
+                         format="ascii.fixed_width_no_header",
+                         names=["station",
+                                "u", "u_err", "e", "e_err", "n", "n_err"],
+                         col_starts=[10, 30, 49, 64, 83, 98, 117],
+                         col_ends=[25, 45, 59, 79, 93, 113, 127])
+
+    # Add information for units
+    sta_gcu["u"].unit = u.m / 1000
+    sta_gcu["e"].unit = u.m / 1000
+    sta_gcu["n"].unit = u.m / 1000
+    sta_gcu["u_err"].unit = u.m / 1000
+    sta_gcu["e_err"].unit = u.m / 1000
+    sta_gcu["n_err"].unit = u.m / 1000
+
+    return sta_gcu
+
+
+def read_sta_crl(crl_file):
+    '''Retrievel local topocentric components of station positions.
+
+    Parameters
+    ----------
+    crl_file : string
+        name of data file
+
+    Returns
+    ----------
+    sta_gcx : astropy.table object
+     |__
+        station : string
+            name of station
+        xp_yp_corr : array, float
+            Correlation between X-position and Y-position
+        xp_zp_corr : array, float
+            Correlation between X-position and Z-position
+        yp_zp_corr : array, float
+            Correlation between Y-position and Z-position
+        xp_xv_corr : array, float
+            Correlation between X-position and X-velocity
+        yp_xv_corr : array, float
+            Correlation between Y-position and X-velocity
+        zp_xv_corr : array, float
+            Correlation between Z-position and X-velocity
+        xp_yv_corr : array, float
+            Correlation between X-position and Y-velocity
+        yp_yv_corr : array, float
+            Correlation between Y-position and Y-velocity
+        zp_yv_corr : array, float
+            Correlation between Z-position and Y-velocity
+        xv_yv_corr : array, float
+            Correlation between X-velocity and Y-velocity
+        xp_zv_corr : array, float
+            Correlation between X-position and Z-velocity
+        yp_zv_corr : array, float
+            Correlation between Y-position and Z-velocity
+        zp_zv_corr : array, float
+            Correlation between Z-position and Z-velocity
+        xv_zv_corr : array, float
+            Correlation between X-velocity and Z-velocity
+        yv_zv_corr : array, float
+            Correlation between Y-velocity and Z-velocity
+    '''
+
+    # Check if the input file exists
+    if not os.path.exists(crl_file):
+        print("Couldn't find the input file", crl_file)
+        sys.exit()
+
+    sta_crl = Table.read(crl_file,
+                         format="ascii.fixed_width_no_header",
+                         names=["station",
+                                "xp_yp_corr", "xp_zp_corr", "yp_zp_corr",
+                                "xp_xv_corr", "yp_xv_corr", "zp_xv_corr",
+                                "xp_yv_corr", "yp_yv_corr", "zp_yv_corr",
+                                "xv_yv_corr", "xp_zv_corr", "yp_zv_corr",
+                                "zp_zv_corr", "xv_zv_corr", "yv_zv_corr"],
+                         col_starts=[10, 30, 37, 44, 51, 58, 65, 73, 79, 86,
+                                     93, 100, 107, 114, 121, 128],
+                         col_ends=[25, 36, 43, 50, 57, 64, 71, 78, 85, 92,
+                                   99, 106, 113, 120, 127, 134])
+
+    return sta_crl
+
+
+def parse_sta_file(in_file, out_file="temp.out", keyword=None):
+    '''printer the lines containing keyword in .sta file
+
+    Parameters
+    ----------
+    in_file : string
+        .sta file
+    out_file : string
+        output file, default is None
+    keyword : string
+        keyword for grep. It could be set as "STA_CRL", "STA_GCU", or
+        "STA_GCX".
+    '''
+
+    keyword_list = ["STA_GCX", "STA_GCU", "STA_CRL"]
+
+    if keyword is None or not keyword in keyword_list:
+        print("Valid keyword!")
+        sys.exit()
+
+    # Check if the input file exists
+    if not os.path.exists(in_file):
+        print("Couldn't find the input file", in_file)
+        sys.exit()
+
+    # Assume that the operation system is an Unix- or Linux-like where
+    # the commond grep is supported.
+    print("Generate a temporary file", out_file, "of type", keyword)
+    os.system("grep %s %s > %s" % (keyword, in_file, out_file))
+    print("Done!")
+
+    # Read the data
+    print("Read", out_file)
+    if keyword is "STA_GCX":
+        data_table = read_sta_gcx(out_file)
+    elif keyword is "STA_GCU":
+        data_table = read_sta_gcu(out_file)
+    else:
+        data_table = read_sta_crl(out_file)
+    print("Done!")
+
+    # Delete the temporary file
+    print("Delete", out_file)
+    os.system("rm %s" % out_file)
+    print("Done!")
+
+    return data_table
+
+
+def read_sta(sta_file):
+    '''Retrieve the result from .sta file.
+
+    Parameters
+    ----------
+    sta_file : string
+        name of .sta file
+
+    Returns
+    ----------
+    sta_pos : astropy.table object
+     |__
+        station : string
+            name of station
+        x : array, float
+            X component
+        y : array, float
+            Y component
+        z : array, float
+            Z component
+        x_err : array, float
+            formal uncertainty of X component
+        y_err : array, float
+            formal uncertainty of Y component
+        z_err : array, float
+            formal uncertainty of Z component
+        u : array, float
+            U component
+        e : array, float
+            E component
+        n : array, float
+            N component
+        u_err : array, float
+            formal uncertainty of U component
+        e_err : array, float
+            formal uncertainty of E component
+        n_err : array, float
+            formal uncertainty of N component
+        xp_yp_corr : array, float
+            Correlation between X-position and Y-position
+        xp_zp_corr : array, float
+            Correlation between X-position and Z-position
+        yp_zp_corr : array, float
+            Correlation between Y-position and Z-position
+        xp_xv_corr : array, float
+            Correlation between X-position and X-velocity
+        yp_xv_corr : array, float
+            Correlation between Y-position and X-velocity
+        zp_xv_corr : array, float
+            Correlation between Z-position and X-velocity
+        xp_yv_corr : array, float
+            Correlation between X-position and Y-velocity
+        yp_yv_corr : array, float
+            Correlation between Y-position and Y-velocity
+        zp_yv_corr : array, float
+            Correlation between Z-position and Y-velocity
+        xv_yv_corr : array, float
+            Correlation between X-velocity and Y-velocity
+        xp_zv_corr : array, float
+            Correlation between X-position and Z-velocity
+        yp_zv_corr : array, float
+            Correlation between Y-position and Z-velocity
+        zp_zv_corr : array, float
+            Correlation between Z-position and Z-velocity
+        xv_zv_corr : array, float
+            Correlation between X-velocity and Z-velocity
+        yv_zv_corr : array, float
+            Correlation between Y-velocity and Z-velocity
+        used_obs : array,
+            Number of used observations of this source
+        total_obs : array, int
+            Total number of observations of this source
+        used_sess : array, int
+            Number of used sessions for this source
+        yotal_sess : array, int
+            Total number of sessions for this source
+        beg_date : array, float
+            Epoch of the first observation
+        end_date : array, float
+            Epoch of the last observation
+    '''
+
+    # Original data contains 3 types of data, which will be read repsectively
+    # 1) STA_GCX (Cartesian components of the vector of station position)
+    sta_gcx = parse_sta_file(sta_file, keyword="STA_GCX")
+
+    # 2) STA_GCU (Local topocentric components of station position)
+    sta_gcu = parse_sta_file(sta_file, keyword="STA_GCU")
+
+    # 3) STA_CRL (Correlations between station positions and velocities)
+    sta_crl = parse_sta_file(sta_file, keyword="STA_CRL")
+
+    # Merge three tables into one major table
+    table0 = join(sta_gcx, sta_gcu, keys="station", join_type="outer")
+    sta_pos = join(table0, sta_crl, keys="station", join_type="outer")
+
+    return sta_pos
+
+
+if __name__ == '__main__':
+    print("No thing to do!")
+    pass
 # ------------------------------ END -----------------------------------
