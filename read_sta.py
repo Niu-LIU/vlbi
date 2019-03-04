@@ -132,17 +132,17 @@ def read_sta_gcx(gcx_file):
      |__
         station : string
             name of station
-        x : array, float
-            X component
-        y : array, float
-            Y component
-        z : array, float
-            Z component
-        x_err : array, float
+        xp : array, float
+            X component of position
+        yp : array, float
+            Y component of position
+        zp : array, float
+            Z component of position
+        xp_err : array, float
             formal uncertainty of X component
-        y_err : array, float
+        yp_err : array, float
             formal uncertainty of Y component
-        z_err : array, float
+        zp_err : array, float
             formal uncertainty of Z component
         used_obs : array,
             Number of used observations of this source
@@ -166,7 +166,7 @@ def read_sta_gcx(gcx_file):
     sta_gcx = Table.read(gcx_file,
                          format="ascii.fixed_width_no_header",
                          names=["station",
-                                "x", "x_err", "y", "y_err", "z", "z_err",
+                                "xp", "xp_err", "yp", "yp_err", "zp", "zp_err",
                                 "used_obs", "total_obs", "used_sess",
                                 "total_sess", "beg_date", "end_date"],
                          col_starts=[10, 30, 49, 64, 83, 98, 117, 138, 155,
@@ -188,12 +188,12 @@ def read_sta_gcx(gcx_file):
     sta_gcx["end_date"] = end_date_list
 
     # Add information for units
-    sta_gcx["x"].unit = u.m / 1000
-    sta_gcx["y"].unit = u.m / 1000
-    sta_gcx["z"].unit = u.m / 1000
-    sta_gcx["x_err"].unit = u.m / 1000
-    sta_gcx["y_err"].unit = u.m / 1000
-    sta_gcx["z_err"].unit = u.m / 1000
+    sta_gcx["xp"].unit = u.m / 1000
+    sta_gcx["yp"].unit = u.m / 1000
+    sta_gcx["zp"].unit = u.m / 1000
+    sta_gcx["xp_err"].unit = u.m / 1000
+    sta_gcx["yp_err"].unit = u.m / 1000
+    sta_gcx["zp_err"].unit = u.m / 1000
     sta_gcx["beg_date"].unit = u.yr
     sta_gcx["end_date"].unit = u.yr
 
@@ -214,17 +214,17 @@ def read_sta_gcu(gcu_file):
      |__
         station : string
             name of station
-        u : array, float
+        up : array, float
             U component
-        e : array, float
+        ep : array, float
             E component
-        n : array, float
+        np : array, float
             N component
-        u_err : array, float
+        up_err : array, float
             formal uncertainty of U component
-        e_err : array, float
+        ep_err : array, float
             formal uncertainty of E component
-        n_err : array, float
+        np_err : array, float
             formal uncertainty of N component
     '''
 
@@ -235,18 +235,18 @@ def read_sta_gcu(gcu_file):
 
     sta_gcu = Table.read(gcu_file,
                          format="ascii.fixed_width_no_header",
-                         names=["station",
-                                "u", "u_err", "e", "e_err", "n", "n_err"],
+                         names=["station", "up", "up_err", "ep", "ep_err",
+                                "np", "np_err"],
                          col_starts=[10, 30, 49, 64, 83, 98, 117],
                          col_ends=[25, 45, 59, 79, 93, 113, 127])
 
     # Add information for units
-    sta_gcu["u"].unit = u.m / 1000
-    sta_gcu["e"].unit = u.m / 1000
-    sta_gcu["n"].unit = u.m / 1000
-    sta_gcu["u_err"].unit = u.m / 1000
-    sta_gcu["e_err"].unit = u.m / 1000
-    sta_gcu["n_err"].unit = u.m / 1000
+    sta_gcu["up"].unit = u.m / 1000
+    sta_gcu["ep"].unit = u.m / 1000
+    sta_gcu["np"].unit = u.m / 1000
+    sta_gcu["up_err"].unit = u.m / 1000
+    sta_gcu["ep_err"].unit = u.m / 1000
+    sta_gcu["np_err"].unit = u.m / 1000
 
     return sta_gcu
 
@@ -381,29 +381,29 @@ def read_sta(sta_file):
      |__
         station : string
             name of station
-        x : array, float
+        xp : array, float
             X component
-        y : array, float
+        yp : array, float
             Y component
-        z : array, float
+        zp : array, float
             Z component
-        x_err : array, float
+        xp_err : array, float
             formal uncertainty of X component
-        y_err : array, float
+        yp_err : array, float
             formal uncertainty of Y component
-        z_err : array, float
+        zp_err : array, float
             formal uncertainty of Z component
-        u : array, float
+        up : array, float
             U component
-        e : array, float
+        ep : array, float
             E component
-        n : array, float
+        np : array, float
             N component
-        u_err : array, float
+        up_err : array, float
             formal uncertainty of U component
-        e_err : array, float
+        ep_err : array, float
             formal uncertainty of E component
-        n_err : array, float
+        np_err : array, float
             formal uncertainty of N component
         xp_yp_corr : array, float
             Correlation between X-position and Y-position
