@@ -7,8 +7,12 @@ Created on Thu Jan 25 15:18:36 2018
 @author: Neo(liuniu@smail.nju.edu.cn)
 """
 
+from astropy.table import Table
+from astropy import units as u
 import numpy as np
 from numpy import genfromtxt
+import os
+import sys
 
 
 __all__ = {"read_itrf", "find_stable_sta"}
@@ -84,18 +88,27 @@ def find_stable_sta(sta, pvX, pvY, pvZ):
     return nsta, npvX, npvY, npvZ
 
 
-def test_code():
-    '''Test these codes.
-    '''
+def itrf2014_core_network():
+    """Read the table of core network stations of ITRF2014
+    """
 
-    sta, pvX, pvY, pvZ = read_itrf(
-        # "/home/oper/traitement/itrf2014.sit")  # vlbi2
-        "/Users/Neo/Astronomy/Data/SOLVE/itrf2014_sitmod")  # My Mac
+    table_file = (
+        "/Users/Neo/Astronomy/Data/solve/itrf2014/core_network_ITRF2014.txt")
 
-    nsta, npvX, npvY, npvZ = find_stable_sta(sta, pvX, pvY, pvZ)
+    core_network = Table.read(table_file,
+                              format="ascii.fixed_width_no_header",
+                              names=["site_id", "domes_nb", "solution",
+                                     "technique", "site_name",
+                                     "longitude", "latitude"],
+                              col_starts=(0, 5, 18, 21, 28, 45, 56),
+                              col_ends=(4, 14, 19, 26, 40, 54, 64))
 
-    print(nsta, npvX, npvY, npvZ)
+    return core_network
 
-# --------------------------------- TEST ------------------------------
-# test_code()
+
+# --------------------------------- MAIN ------------------------------
+if __name__ == '__main__':
+    print("Nothing to do!")
+    pass
+
 # --------------------------------- END -------------------------------

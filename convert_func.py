@@ -1,9 +1,20 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# File name: convert_func.py
+"""
+Created on Thu Mar 21 10:58:04 2019
+
+@author: Neo(liuniu@smail.nju.edu.cn)
+"""
+
+import numpy as np
 from astropy.time import Time
+
 
 __all__ = ["RA_conv", "DC_conv", "date2jyear", "date2mjd"]
 
-# Add a comment for test 
 
+# -----------------------------  FUNCTIONS -----------------------------
 def RA_conv(RAstr):
     """Convert right ascension string of HH_MM_SS.ssssssss into float.
 
@@ -18,7 +29,7 @@ def RA_conv(RAstr):
         right ascension in degree
     """
 
-    hours, mins, secs = RAstr.split("_")
+    hours, mins, secs = RAstr[4:].split("_")
     RA = (float(hours) + float(mins) / 60. + float(secs)/3600.) * 15
     return RA
 
@@ -37,7 +48,7 @@ def DC_conv(DCstr):
         declination in degree
     """
 
-    degs, ams, ass = DCstr.split("_")
+    degs, ams, ass = DCstr[4:].split("_")
 
     # Determine the sign
     if DCstr[0] is "_":
@@ -90,3 +101,6 @@ def date2mjd(s):
     t = Time(s.replace(".", "-"), scale="utc")
 
     return t.mjd
+
+
+# --------------------------------- END --------------------------------

@@ -181,7 +181,7 @@ def read_eop(datafile):
             XR, XR_err, YR, YR_err, UR, UR_err]
 
 
-def read_eops(datafile):
+def read_eops0(datafile):
     '''Retrieve from the result from .eops data.
 
     Data columns are listed as follow:
@@ -252,6 +252,98 @@ def read_eops(datafile):
         Y coordinate of Nutation offset, mas
     dYerr : array. float
         formal uncertainty of dY, mas
+    '''
+
+    mjd, Xp, Yp, U, dX, dY = np.genfromtxt(datafile,
+                                           usecols=range(6),
+                                           unpack=True)
+
+    Xperr, Yperr, Uerr, dXerr, dYerr = np.genfromtxt(datafile,
+                                                     usecols=range(6, 11, 1),
+                                                     unpack=True)
+    # as -> mas or sec -> msec
+    Xp, Yp, Up = Xp * 1000.0, Yp * 1000.0, Up * 1000.0
+    Xperr, Yperr, Uerr = Xperr * 1000.0, Yperr * 1000.0, Uerr * 1000.0
+
+    Xperr = np.where(Xperr == 0, 1.e6, Xperr)
+    Yperr = np.where(Yperr == 0, 1.e6, Yperr)
+    Uerr = np.where(Uerr == 0, 1.e6, Uerr)
+    dXerr = np.where(perr == 0, 1.e6, dXerr)
+    dYerr = np.where(dYerr == 0, 1.e6, dYperr)
+
+    return [mjd, Xp, Xperr, Yp, Yperr, U, Uerr,
+            dX, dXerr, dY, dYerr]
+
+
+def read_eops(datafile):
+    '''Retrieve from the result from .eops data.
+
+    Data columns are listed as follow:
+
+      Columns  Units   Meaning
+         1     days    Modified Julian date
+         2     arcsec  X pole coordinate
+         3     arcsec  Y pole coordinate
+         4     sec     UT1-TAI
+         5     mas     Celestial pole offset dX wrt IAU 2006
+         6     mas     Celestial pole offset dY wrt IAU 2006
+         7     arcsec  Formal uncertainty of X pole coordinate
+         8     arcsec  Formal uncertainty of Y pole coordinate
+         9     sec     Formal uncertainty of UT1-TAI
+        10     mas     Formal uncertainty of celestial pole offset dX
+        11     mas     Formal uncertainty of celestial pole offset dY
+        12     --      10-character database identifier
+        13     --      Correlation between X and Y
+        14     --      Correlation between X and UT1-TAI
+        15     --      Correlation between Y and UT1-TAI
+        16     --      Correlation between dX and dY
+        17     --      Number of used observations in the session
+        18     --      6-character session identifier
+        19     hours   Session duration
+        20     asc/day X pole coordinate rate
+        21     asc/day Y pole coordinate rate
+        22     ms      Excess of length of day
+        23             Field not used
+        24             Field not used
+        25     asc/day Formal uncertainty of X pole coordinate rate
+        26     asc/day Formal uncertainty of Y pole coordinate rate
+        27     ms      Formal uncertainty of excess of length of day
+        28             Field not used
+        29             Field not used
+        30     ps      Postfit rms delay
+        31     --      Array structure
+
+    Parameters
+    ----------
+    datafile : string
+        name of data file
+
+    Returns
+    ----------
+    eops_table : astropy.table.Table object
+        |__
+            mjd : array, float
+                time lag, modified Julian date
+            Xp : array, float
+                X-pole coordinate, mas
+            Xperr : array, float
+                formal uncertainty of X, mas
+            Yp : array, float
+                Y-pole coordinate, mas
+            Yperr : array, float
+                formal uncertainty of Y, mas
+            U : array, float
+                UT1 - TAI, msec
+            Uerr : array, float
+                formal uncertainty of U, msec
+            dX : array, float
+                X coordinate of nutation offset, mas
+            dXerr : array. float
+                formal uncertainty of XR, mas
+            dY : array, float, mas
+                Y coordinate of Nutation offset, mas
+            dYerr : array. float
+                formal uncertainty of dY, mas
     '''
 
     mjd, Xp, Yp, U, dX, dY = np.genfromtxt(datafile,

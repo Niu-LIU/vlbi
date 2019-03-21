@@ -111,7 +111,7 @@ from astropy import units as u
 import numpy as np
 import os
 import sys
-from .convert_func import date2jyear
+from convert_func import date2jyear
 
 
 __all__ = ["read_sta"]

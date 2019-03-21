@@ -90,7 +90,7 @@ takes entire field.
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 
 __all__ = {"zero_err", "read_eob"}
@@ -311,11 +311,6 @@ def read_eops(eops_file):
 
 
 # ------------------------------  MAIN BODY  ---------------------------
-# # Retrieve estimates.
-# dat1 = read_eops("/Users/Neo/Astronomy/Data/VLBISolutions/"
-#                  "vlbi2_server/GA-eop/opa2018r.eops-SL")
-# dat2 = read_eops("/Users/Neo/Astronomy/Data/VLBISolutions/"
-#                  "vlbi2_server/GA-eop/opa2018r.eops")
-# for (dat1i, dat2i) in zip(dat1, dat2):
-#     print(dat1i[0], dat2i[0])
+if __name__ == '__main__':
+    pass
 # ------------------------------ END -----------------------------------
