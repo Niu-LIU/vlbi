@@ -18,12 +18,10 @@ import sys
 import time
 
 # My modules
-# from .convert_func import RA_conv, DC_conv, date2mjd
-# from my_progs.catalog.pos_err import pos_err_calc
 from convert_func import RA_conv, DC_conv, date2mjd
 from pos_err import pos_err_calc
 
-__all__ = ["read_sou", "read_cat"]
+__all__ = ["read_sou", "read_crf"]
 
 
 # -----------------------------  FUNCTIONS -----------------------------
@@ -134,12 +132,12 @@ def read_sou(sou_file):
     return t_sou
 
 
-def read_cat(cat_file):
+def read_crf(crf_file):
     """Read radio source positions
 
     Parameters
     ----------
-    cat_file : string
+    crf_file : string
         the full path of .cat file
 
     Return
@@ -174,10 +172,10 @@ def read_cat(cat_file):
             epoch of last observation (MJD)
     """
 
-    if not os.path.isfile(cat_file):
+    if not os.path.isfile(crf_file):
         sys.exit()
 
-    t_sou = Table.read(cat_file, format="ascii",
+    t_sou = Table.read(crf_file, format="ascii",
                        names=["ivs_name", "iers_name", "ra",
                               "dec", "ra_err", "dec_err", "ra_dec_corr",
                               "mean_epo", "beg_epo", "end_epo",
@@ -208,5 +206,5 @@ def read_cat(cat_file):
 
 # -------------------------------- MAIN --------------------------------
 if __name__ == '__main__':
-    rewrite_sou(sys.argv[1])
+    read_sou(sys.argv[1])
 # --------------------------------- END --------------------------------
