@@ -5,6 +5,8 @@
 Created on Fri Apr 27 00:24:29 2018
 
 @author: Neo(liuniu@smail.nju.edu.cn)
+
+Obsolete!
 """
 
 
@@ -14,7 +16,8 @@ from functools import reduce
 
 
 __all__ = ["list_crossmatch", "pos_Xmatch"
-           "norsep_calc", "postional_difference_calc", "eema_calc",
+           "norsep_calc", "postional_difference_calc",
+           "eema_calc",
            "overall_err_calc"]
 
 

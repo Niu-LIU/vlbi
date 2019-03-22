@@ -13,20 +13,19 @@ import sys
 
 
 # -----------------------------  FUNCTIONS -----------------------------
-def print_header(ofile):
+def print_header(ofile, sln_label=""):
     """Print the header to the output file.
 
     Parameters
     ----------
-    ofile : file handle
-
-    Returns
-    ----------
-    None
+    ofile : string
+        output file name
+    sln_label : string
+        solution label
     """
 
     # Header
-    print("# VLBI Earth Orientation Solution\n"
+    print("# VLBI Earth Orientation Solution %s\n"
           "#\n"
           "# Columns  Units   Meaning\n"
           "#    1     days    Modified Julian date(TDT)\n"
@@ -64,7 +63,7 @@ def print_header(ofile):
           "# Note: Some EOPs were not estimated for some sessions. \n"
           "# They are, however, left in this file for sake of completeness. \n"
           "# They can be identified by their sigma set to zero.\n"
-          "#", file=ofile)
+          "#" % sln_label, file=ofile)
 
 
 def fill_missing(s):
@@ -80,18 +79,20 @@ def fill_missing(s):
     """
 
     if s == "*" * len(s) or s == " " * len(s):
-        return "0." + "0" * (len(s) - 2)
+        return " " * (len(s)-2) + "-0"
     else:
         return s
 
 
-def convert_eops(eob_file):
+def convert_eob_to_eops(eob_file, sln_label=""):
     """Convert the format of .eob file to the same used by Sebastien
 
     Parameters
     ----------
     eob_file : string
         full path of .eob file
+    sln_label : string
+        solution label
 
     Returns
     ----------
@@ -107,7 +108,7 @@ def convert_eops(eob_file):
     ofile = open("%s.eops" % (eob_file[:-4]), "w")
 
     # Print header
-    print_header(ofile)
+    print_header(ofile, sln_label)
 
     # Read .eob file
     ifile = open(eob_file, "r")
@@ -160,8 +161,8 @@ def convert_eops(eob_file):
                   xp_err, yp_err, ut_err, dX_err, dY_err,
                   db, xp_yp_corr, xp_ut_corr, yp_ut_corr, dX_dY_corr,
                   obs_num, sess_code, sess_len,
-                  xpr, ypr, utr, "--", "--",
-                  xpr_err, ypr_err, utr_err, "--", "--",
+                  xpr, ypr, utr, "-0", "-0",
+                  xpr_err, ypr_err, utr_err, "-0", "-0",
                   rms, net, file=ofile)
 
     finally:
@@ -172,8 +173,9 @@ def convert_eops(eob_file):
 # --------------------------------- MAIN -------------------------------
 if __name__ == "__main__":
     if len(sys.argv) == 2:
-        datafile = sys.argv[1]
-        convert_eops(datafile)
+        convert_eob_to_eops(sys.argv[1])
+    elif len(sys.argv) == 3:
+        convert_eob_to_eops(sys.argv[1], sys.argv[2])
     else:
         print("Input error!")
         exit()

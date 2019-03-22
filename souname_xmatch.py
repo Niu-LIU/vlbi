@@ -6,7 +6,7 @@ Created on Thu Apr 26 15:55:00 2018
 
 @author: Neo(liuniu@smail.nju.edu.cn)
 
-Read radio source name from data list
+Read radio source name from data list. Obsolete!
 """
 
 from astropy.io import fits
@@ -195,9 +195,6 @@ def find_sou_designation(sou, nametype):
 
     for i, soui in enumerate(sou):
         indarr = np.where(list0 == soui)[0]
-        # if soui == 'IIIZW2':
-        #     print("YES!")
-        #     print(indarr)
 
         if indarr.size:
             j = indarr[0]
@@ -218,12 +215,5 @@ def find_sou_designation(sou, nametype):
                 list2[i] = " " * 16
                 list3[i] = soui
 
-            # list1[i] = " " * 8
-            # list2[i] = " " * 16
-            # list3[i] = " " * 8
-
-    # print(list2)
-
     return list1, list2, list3
-    # return list1, list3
 # --------------------------------- END --------------------------------
