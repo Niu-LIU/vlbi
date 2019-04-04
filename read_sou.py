@@ -18,10 +18,10 @@ import sys
 import time
 
 # My modules
-from convert_func import RA_conv, DC_conv, date2mjd
-from pos_err import pos_err_calc
+from .convert_func import RA_conv, DC_conv, date2mjd
+from .pos_err import pos_err_calc
 
-__all__ = ["read_sou", "read_crf"]
+__all__ = ["read_sou", "read_crf", "read_cat"]
 
 
 # -----------------------------  FUNCTIONS -----------------------------
@@ -142,7 +142,7 @@ def read_crf(crf_file):
 
     Return
     ------
-    t_sou : astropy.table object
+    t_crf : astropy.table object
         |
         -- ivs_name : str
             IVS source name
@@ -175,33 +175,117 @@ def read_crf(crf_file):
     if not os.path.isfile(crf_file):
         sys.exit()
 
-    t_sou = Table.read(crf_file, format="ascii",
+    t_crf = Table.read(crf_file, format="ascii.fixed_width_no_header",
                        names=["ivs_name", "iers_name", "ra",
                               "dec", "ra_err", "dec_err", "ra_dec_corr",
                               "mean_epo", "beg_epo", "end_epo",
                               "num_sess", "num_del", "num_delrate", "flag"])
 
-    mask = (t_sou["num_del"] != 0)
-    t_sou = Table(t_sou[mask], masked=False)
+    mask = (t_crf["num_del"] != 0)
+    # t_crf = Table(t_crf[mask], masked=False)
+    t_crf = t_crf[mask].filled()
 
     # unit
-    t_sou["ra"].unit = u.deg
-    t_sou["dec"].unit = u.deg
-    t_sou["ra_err"].unit = u.mas
-    t_sou["dec_err"].unit = u.mas
-    t_sou["mean_epo"].unit = cds.MJD
-    t_sou["beg_epo"].unit = cds.MJD
-    t_sou["end_epo"].unit = cds.MJD
+    t_crf["ra"].unit = u.deg
+    t_crf["dec"].unit = u.deg
+    t_crf["ra_err"].unit = u.mas
+    t_crf["dec_err"].unit = u.mas
+    t_crf["mean_epo"].unit = cds.MJD
+    t_crf["beg_epo"].unit = cds.MJD
+    t_crf["end_epo"].unit = cds.MJD
 
     # Calculate the semi-major axis of error ellipse
-    pos_err = pos_err_calc(t_sou["ra_err"], t_sou["dec_err"],
-                           t_sou["ra_dec_corr"])
+    pos_err = pos_err_calc(t_crf["ra_err"], t_crf["dec_err"],
+                           t_crf["ra_dec_corr"])
 
     # Add the semi-major axis of error ellipse to the table
-    t_sou.add_column(pos_err, name="pos_err", index=7)
-    t_sou["pos_err"].unit = u.mas
+    t_crf.add_column(pos_err, name="pos_err", index=7)
+    t_crf["pos_err"].unit = u.mas
 
-    return t_sou
+    return t_crf
+
+
+def read_cat(cat_file):
+    """Read radio source positions
+
+    Parameters
+    ----------
+    cat_file : string
+        the full path of .cat file
+
+    Return
+    ------
+    t_cat : astropy.table object
+        |
+        -- ivs_name : str
+            IVS source name
+        -- ra : float
+            right ascension (degree)
+        -- ra_err
+            formal uncertainty in RA (mas)
+        -- dec
+            declination (degree)
+        -- dec_err
+            formal uncertainty in Dec. (mas)
+        -- ra_dec_corr
+            correlation coefficient between RA and Dec.
+        -- pos_err
+            ellipse semi-major axis of positional error (mas)
+        -- used_obs
+            number of observations used in the solution
+        -- total_obs
+            number of total observations of this source
+        -- used_sess
+            number of sessions used in the solution
+        -- total_sess
+            number of total sessions of this source
+        -- beg_date
+            epoch of first observation (MJD)
+        -- end_date
+            epoch of last observation (MJD)
+    """
+
+    if not os.path.isfile(cat_file):
+        sys.exit()
+
+    ivs_name, iers_name = np.genfromtxt(
+        cat_file, dtype=str, usecols=(0, 1), unpack=True)
+    ra, ra_err, dec, dec_err, ra_dec_corr = np.genfromtxt(
+        cat_file, usecols=range(2, 7), unpack=True)
+    num_sess, num_del = np.genfromtxt(
+        cat_file, dtype=int, usecols=(7, 8), unpack=True)
+    mean_epo, beg_epo, end_epo = np.genfromtxt(
+        cat_file, usecols=(9, 10, 11), unpack=True)
+
+    t_cat = Table([ivs_name, iers_name,
+                   ra, dec, ra_err, dec_err, ra_dec_corr,
+                   num_sess, num_del, mean_epo, beg_epo, end_epo],
+                  names=["ivs_name", "iers_name",
+                         "ra", "dec", "ra_err", "dec_err", "ra_dec_corr",
+                         "num_sess", "num_del",
+                         "mean_epo", "beg_epo", "end_epo"])
+
+    mask = (t_cat["num_del"] != 0)
+    t_cat = t_cat[mask].filled()
+
+    # unit
+    t_cat["ra"].unit = u.deg
+    t_cat["dec"].unit = u.deg
+    t_cat["ra_err"].unit = u.mas
+    t_cat["dec_err"].unit = u.mas
+    t_cat["mean_epo"].unit = cds.MJD
+    t_cat["beg_epo"].unit = cds.MJD
+    t_cat["end_epo"].unit = cds.MJD
+
+    # Calculate the semi-major axis of error ellipse
+    pos_err = pos_err_calc(t_cat["ra_err"], t_cat["dec_err"],
+                           t_cat["ra_dec_corr"])
+
+    # Add the semi-major axis of error ellipse to the table
+    t_cat.add_column(pos_err, name="pos_err", index=7)
+    t_cat["pos_err"].unit = u.mas
+
+    return t_cat
 
 
 # -------------------------------- MAIN --------------------------------

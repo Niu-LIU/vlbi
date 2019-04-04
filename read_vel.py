@@ -53,6 +53,8 @@ from astropy import units as u
 import numpy as np
 import os
 import sys
+# My module
+from .read_sta import read_sta
 
 
 __all__ = ["read_vel"]
@@ -75,14 +77,14 @@ def read_sta_gvx(gvx_file):
             name of station
         xv : array, float
             X component of station velocity
-        yv : array, float
-            Y component of station velocity
-        zv : array, float
-            Z component of station velocity
         xv_err : array, float
             formal uncertainty of X component of station velocity
+        yv : array, float
+            Y component of station velocity
         yv_err : array, float
             formal uncertainty of Y component of station velocity
+        zv : array, float
+            Z component of station velocity
         zv_err : array, float
             formal uncertainty of Z component of station velocity
     '''
@@ -126,14 +128,14 @@ def read_sta_gvu(gvu_file):
             name of station
         uv : array, float
             U component of station velocity
-        ev : array, float
-            E component of station velocity
-        nv : array, float
-            N component of station velocity
         uv_err : array, float
             formal uncertainty of U component of station velocity
+        ev : array, float
+            E component of station velocity
         ev_err : array, float
             formal uncertainty of E component of station velocity
+        nv : array, float
+            N component of station velocity
         nv_err : array, float
             formal uncertainty of N component of station velocity
     '''
@@ -207,7 +209,7 @@ def parse_vel_file(in_file, out_file="temp.out", keyword=None):
     return data_table
 
 
-def read_vel(vel_file):
+def read_vel(vel_file, get_corr=False):
     '''Retrieve the result from .lso file.
 
     Parameters
@@ -254,12 +256,21 @@ def read_vel(vel_file):
     # 2) STA_GVU (Local topocentric components of station velocities)
     sta_gvu = parse_vel_file(vel_file, keyword="STA_GVU")
 
-    # Merge three tables into one major table
+    # Merge two tables into one major table
     sta_vel = join(sta_gvx, sta_gvu, keys="station", join_type="outer")
+
+    # Do not forget the correlation between estimates.
+    if get_corr:
+        sta_corr = read_sta("%s.sta" % vel_file[:-4])
+        sta_corr.keep_columns(
+            ["station", "xv_yv_corr",  "xv_zv_corr", "yv_zv_corr"])
+
+        sta_vel = join(sta_gvx, sta_corr, keys="station", join_type="left")
 
     return sta_vel
 
 
+# ----------------------------- MAIN -----------------------------------
 if __name__ == '__main__':
     print("Nothing to do!")
 # ------------------------------ END -----------------------------------

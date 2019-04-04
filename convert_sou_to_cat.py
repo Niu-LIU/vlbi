@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # File name: convert_sou_to_cat.py
 """
-Created on Thu Apr 26 15:46:01 2018
+Created on Sat Mar 23 21:02:56 2019
 
 @author: Neo(liuniu@smail.nju.edu.cn)
 """
@@ -13,8 +13,7 @@ import sys
 import time
 
 # My module
-# from my_progs.vlbi.read_sou import read_sou
-from read_sou import read_sou
+from my_progs.vlbi.read_sou import read_sou
 
 __all__ = ["write_into_cat", "convert_sou_to_cat"]
 
@@ -76,13 +75,14 @@ def write_into_cat(t_sou, cat_file, sln_label=""):
         "   10     days    Average epoch of observation (MJD)",
         "   11     days    First epoch of observation (MJD)",
         "   12     days    Last epoch of observation (MJD)",
-        " Created date: %s." % time.strftime("%d/%m/%Y", time.localtime())]
+        " Created on %s." % time.strftime("%d/%m/%Y", time.localtime()),
+        " "]
 
     t_sou.write(cat_file, format="ascii.fixed_width_no_header",
-                delimiter="  ",
+                delimiter="",
                 exclude_names=["j2000_name", "total_obs",
                                "total_sess", "pos_err"],
-                formats={"ivs_name": "%8s", "iers_name": "%8s",
+                formats={"ivs_name": "%-8s", "iers_name": "%-8s",
                          "ra": "%14.10f", "dec": "%+14.10f",
                          "ra_err": "%10.4f", "dec_err": "%10.4f",
                          "ra_dec_corr": "%+7.4f"}, overwrite=True)
@@ -119,4 +119,4 @@ if __name__ == "__main__":
         convert_sou_to_cat(sys.argv[1], sys.argv[2])
     else:
         print("Too many arguments!")
-# -------------------------------- END --------------------------------
+# --------------------------------- END --------------------------------

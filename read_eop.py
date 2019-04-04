@@ -125,7 +125,7 @@ def read_eop(eop_file):
             formal uncertainty of X, mas
         yp_err : array, float
             formal uncertainty of Y, mas
-        dut_err : array, float
+        dut1_err : array, float
             formal uncertainty of U, msec
         dX_err : array. float
             formal uncertainty of XR, mas
@@ -171,7 +171,7 @@ def read_eop(eop_file):
                        names=["db_name", "epoch", "num_obs",
                               "xp", "xp_err",
                               "yp", "yp_err",
-                              "ut1_tai", "dut_err",
+                              "ut1_tai", "dut1_err",
                               "xp_rate", "xp_rate_err",
                               "yp_rate", "yp_rate_err",
                               "ut1_rate", "ut1_rate_err"],
@@ -196,13 +196,13 @@ def read_eop(eop_file):
 
     # 3) UT1-TAI/UT1-UTC and rate
     t_eop["ut1_tai"].unit = u.second / 1000
-    t_eop["dut_err"].unit = u.second / 1000
+    t_eop["dut1_err"].unit = u.second / 1000
     t_eop["ut1_rate"].unit = u.second / 1000 / u.day
     t_eop["ut1_rate_err"].unit = u.second / 1000 / u.day
 
     # Remove the data points which are not estimated in the solution
     mask = ((t_eop["xp_err"] != 0) & (t_eop["yp_err"] != 0)
-            & (t_eop["dut_err"] != 0))
+            & (t_eop["dut1_err"] != 0))
     t_eop = Table(t_eop[mask], masked=False)
 
     return t_eop
@@ -241,7 +241,7 @@ def read_eob(eob_file):
             formal uncertainty of X, mas
         yp_err : array, float
             formal uncertainty of Y, mas
-        dut_err : array, float
+        dut1_err : array, float
             formal uncertainty of U, msec
         dX_err : array. float
             formal uncertainty of XR, mas
@@ -287,7 +287,7 @@ def read_eob(eob_file):
                        names=["epoch_pmr", "db_name",
                               "xp", "yp", "ut1_tai", "dX", "dY",
                               "xp_rate", "yp_rate", "ut1_rate",
-                              "xp_err", "yp_err", "dut_err",
+                              "xp_err", "yp_err", "dut1_err",
                               "dX_err", "dY_err",
                               "xp_rate_err", "yp_rate_err", "ut1_rate_err",
                               "xp_yp_corr", "xp_ut1_corr",
@@ -314,7 +314,7 @@ def read_eob(eob_file):
 
     # 3) UT1-TAI/UT1-UTC and rate
     t_eob["ut1_tai"].unit = u.second
-    t_eob["dut_err"].unit = u.second
+    t_eob["dut1_err"].unit = u.second
     t_eob["ut1_rate"].unit = u.second / u.day
     t_eob["ut1_rate_err"].unit = u.second / u.day
 
@@ -338,17 +338,17 @@ def read_eob(eob_file):
     # t_eob["yp_rate"] = t_eob["yp_rate"].to(u.mas / u.day)
     # t_eob["yp_rate_err"] = t_eob["yp_rate_err"].to(u.mas / u.day)
     # t_eob["ut1_tai"] = t_eob["ut1_tai"] * 15e6
-    # t_eob["dut_err"] = t_eob["dut_err"] * 15e6
+    # t_eob["dut1_err"] = t_eob["dut1_err"] * 15e6
     # t_eob["ut1_rate"] = t_eob["ut1_rate"] * 15e6
     # t_eob["ut1_rate_err"] = t_eob["ut1_rate_err"] * 15e6
     # t_eob["ut1_tai"].unit = u.mas
-    # t_eob["dut_err"].unit = u.mas
+    # t_eob["dut1_err"].unit = u.mas
     # t_eob["ut1_rate"].unit = u.mas / u.day
     # t_eob["ut1_rate_err"].unit = u.mas / u.day
 
     # Remove the data points which are not estimated in the solution
     mask = ((t_eob["xp_err"] != 0) & (t_eob["yp_err"] != 0)
-            & (t_eob["dut_err"] != 0) & (t_eob["dX_err"] != 0)
+            & (t_eob["dut1_err"] != 0) & (t_eob["dX_err"] != 0)
             & (t_eob["dY_err"] != 0))
     t_eob = Table(t_eob[mask], masked=False)
 
@@ -388,7 +388,7 @@ def read_eops(eops_file):
             formal uncertainty of X, mas
         yp_err : array, float
             formal uncertainty of Y, mas
-        dut_err : array, float
+        dut1_err : array, float
             formal uncertainty of U, msec
         dX_err : array. float
             formal uncertainty of XR, mas
@@ -433,7 +433,7 @@ def read_eops(eops_file):
     t_eops = Table.read(eops_file, format="ascii",
                         names=["epoch",
                                "xp", "yp", "ut1_tai", "dX", "dY",
-                               "xp_err", "yp_err", "dut_err",
+                               "xp_err", "yp_err", "dut1_err",
                                "dX_err", "dY_err",
                                "db_name",
                                "xp_yp_corr", "xp_ut1_corr",
@@ -462,7 +462,7 @@ def read_eops(eops_file):
 
     # 3) UT1-TAI/UT1-UTC and rate
     t_eops["ut1_tai"].unit = u.second
-    t_eops["dut_err"].unit = u.second
+    t_eops["dut1_err"].unit = u.second
 
     # 4) Nutation offset
     t_eops["dX"].unit = u.mas
@@ -475,7 +475,7 @@ def read_eops(eops_file):
 
     # Remove the data points which are not estimated in the solution
     mask = ((t_eops["xp_err"] != 0) & (t_eops["yp_err"] != 0)
-            & (t_eops["dut_err"] != 0) & (t_eops["dX_err"] != 0)
+            & (t_eops["dut1_err"] != 0) & (t_eops["dX_err"] != 0)
             & (t_eops["dY_err"] != 0))
     t_eops = Table(t_eops[mask], masked=False)
 

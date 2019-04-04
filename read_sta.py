@@ -111,7 +111,7 @@ from astropy import units as u
 import numpy as np
 import os
 import sys
-from convert_func import date2jyear
+from .convert_func import date2jyear
 
 
 __all__ = ["read_sta"]
@@ -466,6 +466,7 @@ def read_sta(sta_file):
     return sta_pos
 
 
+# ----------------------------- MAIN -----------------------------------
 if __name__ == '__main__':
     print("No thing to do!")
     pass
