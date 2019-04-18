@@ -84,62 +84,6 @@ def read_c04(c04_file="/Users/Neo/tmp/git/Niu-LIU/vlbi/aux_files/"
     return t_c04
 
 
-def read_c04(c04_file="/Users/Neo/tmp/git/Niu-LIU/vlbi/aux_files/"
-             "eopc04_IAU2000.62-now.txt"):
-    """Read EOP from C04 series.
-
-    Parameters
-    ----------
-    c04_file : string
-        c04 data file
-
-    Returns
-    ----------
-    t_c04 : astropy.table object
-    """
-
-    if not os.path.isfile(c04_file):
-        print("Couldn't find the file", c04_file)
-        sys.exit()
-
-    t_c04 = Table.read(c04_file, format="ascii",
-                       names=["year", "month", "date", "epoch",
-                              "xp", "yp", "ut1_utc", "lod", "dX", "dY",
-                              "xp_err", "yp_err", "dut1_err",
-                              "lod_err", "dX_err", "dY_err"])
-
-    # Add the unit information
-    # 1) Time tag
-    t_c04["epoch"].unit = cds.MJD
-
-    # 2) polar motion (wobble) and rate
-    t_c04["xp"].unit = u.arcsec
-    t_c04["yp"].unit = u.arcsec
-    t_c04["xp_err"].unit = u.arcsec
-    t_c04["yp_err"].unit = u.arcsec
-
-    # 3) UT1-UTC and LOD
-    t_c04["ut1_utc"].unit = u.second
-    t_c04["dut1_err"].unit = u.second
-    t_c04["lod"].unit = u.second
-    t_c04["lod_err"].unit = u.second
-
-    # 4) polar motion (wobble) and rate
-    t_c04["dX"].unit = u.arcsec
-    t_c04["dY"].unit = u.arcsec
-    t_c04["dX_err"].unit = u.arcsec
-    t_c04["dY_err"].unit = u.arcsec
-
-    # Remove the data points which are not estimated in the solution
-    mask = ((t_c04["xp_err"] != 0) & (t_c04["yp_err"] != 0)
-            & (t_c04["dut1_err"] != 0) & (t_c04["lod_err"] != 0)
-            & (t_c04["dX_err"] != 0) & (t_c04["dY_err"] != 0))
-
-    t_c04 = Table(t_c04[mask], masked=False)
-
-    return t_c04
-
-
 def read_c04_array(c04_file="/Users/Neo/tmp/git/Niu-LIU/vlbi/aux_files/"
                    "eopc04_IAU2000.62-now.txt"):
     """Fetch the C04 series.
@@ -320,7 +264,7 @@ def interpolate_pmr(epoch_pmr, epoch_c04, xp_c04, yp_c04, ut_c04):
         # so we need to calculate IAI - UTC and then convert ut_apr to UT1-UTC
         delta_tai_utc = delta_tai_utc_calc(epoch_pmr[i])
 
-        ut_apr[i] += delta_tai_utc
+        ut_apr[i] -= delta_tai_utc
 
     return xp_apr, yp_apr, ut_apr
 
@@ -429,11 +373,8 @@ def calc_c04_apr(t_eob, ofile=None):
     t_c04_apr["ut1_tai_c04_apr"].unit = u.second
 
     # 3) Nutation offset
-    t_c04_apr["dX_c04_apr"].unit = u.arcsec
-    t_c04_apr["dY_c04_apr"].unit = u.arcsec
-
-    t_c04_apr["dX_c04_apr"].convert_unit_to(u.mas)
-    t_c04_apr["dY_c04_apr"].convert_unit_to(u.mas)
+    t_c04_apr["dX_c04_apr"].unit = u.mas
+    t_c04_apr["dY_c04_apr"].unit = u.mas
 
     # Output
     if ofile is not None:

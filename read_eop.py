@@ -222,11 +222,11 @@ def read_eob(eob_file):
         epoch_pmr : array, float
             time lag, modified Julian date
         xp : array, float
-            X-pole coordinate, mas
+            X-pole coordinate, as
         yp : array, float
-            Y-pole coordinate, mas
+            Y-pole coordinate, as
         ut1_tai : array, float
-            UT1 - TAI, msec
+            UT1 - TAI, sec
         dX : array, float
             X coordinate of nutation offset, mas
         dY : array, float, mas
