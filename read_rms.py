@@ -11,12 +11,49 @@ the program getpar.
 
 """
 
+from astropy.time import Time
+from astropy.table import Table
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
 
 
 # ------------------------------  FUNCTIONS  ---------------------------
+def calc_sess_epoch_from_name(sess_id):
+    """Calculate the epoch from session identifiers.
+    """
+
+    # Mapping table between letter and number for month
+    mon_str2num = {
+        "JAN": "01",
+        "FEB": "02",
+        "MAR": "03",
+        "APR": "04",
+        "MAY": "05",
+        "JUN": "06",
+        "JUL": "07",
+        "AUG": "08",
+        "SEP": "09",
+        "OCT": "10",
+        "NOV": "11",
+        "DEC": "12"
+    }
+
+    year = int(sess_id[1:3])
+    mon_str = sess_id[3:6]
+    date = sess_id[6:8]
+
+    if year >= 79:
+        year += 1900
+    else:
+        year += 2000
+
+    epoch = Time(
+        "{}-{}-{}".format(year, mon_str2num[mon_str], date), format="iso")
+
+    return epoch.jyear
+
+
 def plot_rms_num(obsnum, wrmsd, wrmsr):
     '''Plot the wrms of delay / delay rate vs No.obs
     '''
@@ -49,12 +86,12 @@ def plot_rms_epo(epo, wrmsd, wrmsr):
     plt.close()
 
 
-def read_rms(datafile):
+def read_rms(rmsfile):
     '''Retrieve the result from .rms file.
 
     Parameters
     ----------
-    datafile : string
+    rmsfile : string
         name of data file
 
     Returns
@@ -71,11 +108,16 @@ def read_rms(datafile):
         overall wrms of postfit delay rate residuals, fsec/s
     '''
 
-    dbname = np.genfromtxt(datafile, dtype=str, usecols=(1,))
-    obsnum = np.genfromtxt(datafile, dtype=int, usecols=(2,))
-    wrmsd, wrmsr = np.genfromtxt(datafile, usecols=(3, 5), unpack=True)
+    rmstable = Table.read(rmsfile, format="ascii.fixed_width_no_header",
+                          data_start=3)
 
-    fnut = "%s.nut" % datafile[:-4]
+    dbname = np.genfromtxt(rmsfile, dtype=str, usecols=(1,))
+    obsnum = np.genfromtxt(rmsfile, dtype=int, usecols=(2,))
+    wrmsd, wrmsr = np.genfromtxt(rmsfile, usecols=(3, 5), unpack=True)
+
+    epo = [calc_sess_epoch_from_name(db) for db in rmstable["sess_name"]]
+
+    fnut = "%s.nut" % rmsfile[:-4]
     dbname0 = np.genfromtxt(fnut, dtype=str, usecols=(1,))
     epo0 = np.genfromtxt(fnut, usecols=(4,))
     epo = np.zeros_like(epo0)
@@ -88,10 +130,10 @@ def read_rms(datafile):
 
 # Retrieve estimates.
 if len(sys.argv) == 1:
-    datafile = 'result/test.rms'
+    rmsfile = 'result/test.rms'
 else:
-    datafile = sys.argv[1]
-dbname, obsnum, epo, wrmsd, wrmsr = read_rms(datafile)
+    rmsfile = sys.argv[1]
+dbname, obsnum, epo, wrmsd, wrmsr = read_rms(rmsfile)
 # print(dbname[0],
 #       obsnum[0],
 #       epo[0],
