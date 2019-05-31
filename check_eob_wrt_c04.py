@@ -21,7 +21,7 @@ import os
 from scipy.interpolate import CubicSpline
 import sys
 # My module
-from .delta_tai_utc import delta_tai_utc_calc
+from my_progs.vlbi.delta_tai_utc import delta_tai_utc_calc
 
 
 __all__ = {"read_c04", "calc_c04_apr", "calc_c04_offset"}
@@ -84,8 +84,7 @@ def read_c04(c04_file="/Users/Neo/tmp/git/Niu-LIU/vlbi/aux_files/"
     return t_c04
 
 
-def read_c04_array(c04_file="/Users/Neo/tmp/git/Niu-LIU/vlbi/aux_files/"
-                   "eopc04_IAU2000.62-now.txt"):
+def read_c04_array(c04_file=None):
     """Fetch the C04 series.
 
     Parameters
@@ -111,6 +110,10 @@ def read_c04_array(c04_file="/Users/Neo/tmp/git/Niu-LIU/vlbi/aux_files/"
         yp component of CPO, mas
     """
 
+    if c04_file is None:
+        c04_file = ("/Users/Neo/tmp/git/Niu-LIU/vlbi/aux_files/"
+                    "eopc04_IAU2000.62-now.txt")
+
     epoch_mjd, xp, yp, ut = np.genfromtxt(c04_file, skip_header=14,
                                           usecols=np.arange(3, 7), unpack=True)
     dX, dY = np.genfromtxt(c04_file, skip_header=14,
@@ -120,61 +123,6 @@ def read_c04_array(c04_file="/Users/Neo/tmp/git/Niu-LIU/vlbi/aux_files/"
     dX, dY = dX * 1000, dY * 1000
 
     return epoch_mjd, xp, yp, ut, dX, dY
-
-
-def read_c04_apr(c04_apr_file):
-    """Read EOP from C04 series.
-
-    Parameters
-    ----------
-    c04_apr_file : string
-        c04 a priori file
-
-    Returns
-    ----------
-    t_c04 : astropy.table object
-    """
-
-    if not os.path.isfile(c04_apr_file):
-        print("Couldn't find the file", c04_apr_file)
-        sys.exit()
-
-    t_c04 = Table.read(c04_apr_file, format="ascii",
-                       names=["epoch",
-                              "xp", "yp", "ut1_utc", "lod", "dX", "dY",
-                              "xp_err", "yp_err", "dut1_err",
-                              "lod_err", "dX_err", "dY_err"])
-
-    # Add the unit information
-    # 1) Time tag
-    t_c04["epoch"].unit = cds.MJD
-
-    # 2) polar motion (wobble) and rate
-    t_c04["xp"].unit = u.arcsec
-    t_c04["yp"].unit = u.arcsec
-    t_c04["xp_err"].unit = u.arcsec
-    t_c04["yp_err"].unit = u.arcsec
-
-    # 3) UT1-UTC and LOD
-    t_c04["ut1_utc"].unit = u.second
-    t_c04["dut1_err"].unit = u.second
-    t_c04["lod"].unit = u.second
-    t_c04["lod_err"].unit = u.second
-
-    # 4) polar motion (wobble) and rate
-    t_c04["dX"].unit = u.arcsec
-    t_c04["dY"].unit = u.arcsec
-    t_c04["dX_err"].unit = u.arcsec
-    t_c04["dY_err"].unit = u.arcsec
-
-    # Remove the data points which are not estimated in the solution
-    mask = ((t_c04["xp_err"] != 0) & (t_c04["yp_err"] != 0)
-            & (t_c04["dut1_err"] != 0) & (t_c04["lod_err"] != 0)
-            & (t_c04["dX_err"] != 0) & (t_c04["dY_err"] != 0))
-
-    t_c04 = Table(t_c04[mask], masked=False)
-
-    return t_c04
 
 
 def cubic_spline(x, xs, ys):
@@ -360,8 +308,10 @@ def calc_c04_apr(t_eob, ofile=None):
 
     # Creat a table to store the a priori information
     t_c04_apr = Table(
-        [t_eob["db_name"], xp_apr, yp_apr, dut_apr, dX_apr, dY_apr],
-        names=["db_name", "xp_c04_apr", "yp_c04_apr", "ut1_tai_c04_apr",
+        [t_eob["db_name"], t_eob["epoch_pmr"],
+         xp_apr, yp_apr, dut_apr, dX_apr, dY_apr],
+        names=["db_name", "epoch",
+               "xp_c04_apr", "yp_c04_apr", "ut1_tai_c04_apr",
                "dX_c04_apr", "dY_c04_apr"])
 
     # Add the unit information
@@ -369,7 +319,7 @@ def calc_c04_apr(t_eob, ofile=None):
     t_c04_apr["xp_c04_apr"].unit = u.arcsec
     t_c04_apr["yp_c04_apr"].unit = u.arcsec
 
-    # 2) UT1-TAI/UT1-UTC and rate
+    # 2) UT1-TAI/UT1-UTC
     t_c04_apr["ut1_tai_c04_apr"].unit = u.second
 
     # 3) Nutation offset
@@ -379,22 +329,73 @@ def calc_c04_apr(t_eob, ofile=None):
     # Output
     if ofile is not None:
         print("# Output file: %s" % (ofile))
+    else:
+        ofile = "c04_apr.txt"
 
-        fout = open(ofile, "w")
-        # header
-        print("# EOP and Nutation a priori values based C04:\n"
-              "# Epoch  xp   yp   UT1-UTC  ddX  ddY\n"
-              "# mjd    as   as   second   mas  mas",
-              file=fout)
+    # Header
+    t_c04_apr.meta["comments"] = [
+        " EOP and nutation series wrt. C04 series",
+        " Columns  Units   Meaning",
+        "    1     day     Time Tag (MJD)",
+        "    3     uas     X pole coordinate",
+        "    4     uas     Y pole coordinate",
+        "    5     us      UT1 - TAI",
+        "    6     uas     dX of Nutation offsets",
+        "    7     uas     dY of Nutation offsets",
+        " Created date: %s." % time.strftime("%d/%m/%Y", time.localtime())]
 
-        for (epochi, xp_apri, yp_apri, dut_apri, dX_apri, dY_apri) in zip(
-                epoch_pmr, xp_apr, yp_apr, dut_apr, dX_apr, dY_apr):
-            print("%f  %+8.3f  %+8.3f  %+8.3f  %+8.3f  %+8.3f" %
-                  (epochi, xp_apr, yp_apr, dut_apr, dX_apr, dY_apr), file=fout)
-
-        fout.close()
+    t_c04_apr.write(ofile, format="ascii.fixed_width_no_header",
+                    include_names=["epoch", "xp_c04_apr", "yp_c04_apr",
+                                   "ut1_tai_c04_apr",
+                                   "dX_c04_apr", "dY_c04_apr"],
+                    formats={"epoch_pmr": "%13.6f", "dxp_c04_apr": "%+14.6f",
+                             "dyp_c04_apr": "%+14.6f",
+                             "ut1_tai_c04_apr": "%+14.6f",
+                             "ddX_c04_apr": "%+8.3f", "ddY_c04_apr": "%+8.3f"},
+                    delimiter="", overwrite=True)
 
     return t_c04_apr
+
+
+def read_c04_apr(c04_apr_file=None):
+    """Read EOP from C04 series.
+
+    Parameters
+    ----------
+    c04_apr_file : string
+        c04 a priori file
+
+    Returns
+    ----------
+    t_c04 : astropy.table object
+    """
+
+    if c04_file is None:
+        c04_file = "c04_apr.txt"
+
+    if not os.path.isfile(c04_apr_file):
+        print("Couldn't find the file", c04_apr_file)
+        sys.exit()
+
+    t_c04 = Table.read(c04_apr_file, format="ascii",
+                       names=["epoch", "xp", "yp", "ut1_utc", "dX", "dY"])
+
+    # Add the unit information
+    # 1) Time tag
+    t_c04["epoch"].unit = cds.MJD
+
+    # 2) polar motion (wobble) and rate
+    t_c04["xp"].unit = u.arcsec
+    t_c04["yp"].unit = u.arcsec
+
+    # 3) UT1-UTC and LOD
+    t_c04["ut1_utc"].unit = u.second
+
+    # 4) polar motion (wobble) and rate
+    t_c04["dX"].unit = u.arcsec
+    t_c04["dY"].unit = u.arcsec
+
+    return t_c04
 
 
 def calc_c04_offset(t_eob, ofile=None):
@@ -407,63 +408,66 @@ def calc_c04_offset(t_eob, ofile=None):
 
     Returns
     -------
-    t_eob : astropy.table object
-        EOP estimates from .eob file
+    t_eob_oft : astropy.table object
+        EOP offset wrt. the C04 series
     """
 
     # C04 a priori values
     t_c04_apr = calc_c04_apr(t_eob)
 
     # Cross-match two tables by sessoion identifier
-    t_eob_apr = join(t_eob, t_c04_apr, keys="db_name")
+    t_eob_oft = join(t_eob, t_c04_apr, keys="db_name")
 
-    dxp = t_eob_apr["xp_c04_apr"] - t_eob_apr["xp"]
-    dyp = t_eob_apr["yp_c04_apr"] - t_eob_apr["yp"]
-    dut = t_eob_apr["ut1_tai_c04_apr"] - t_eob_apr["ut1_tai"]
-    ddX = t_eob_apr["dX_c04_apr"] - t_eob_apr["dX"]
-    ddY = t_eob_apr["dY_c04_apr"] - t_eob_apr["dY"]
+    dxp = t_eob_oft["xp_c04_apr"] - t_eob_oft["xp"]
+    dyp = t_eob_oft["yp_c04_apr"] - t_eob_oft["yp"]
+    dut = t_eob_oft["ut1_tai_c04_apr"] - t_eob_oft["ut1_tai"]
+    ddX = t_eob_oft["dX_c04_apr"] - t_eob_oft["dX"]
+    ddY = t_eob_oft["dY_c04_apr"] - t_eob_oft["dY"]
 
     # Polar motion
     dxp.convert_unit_to(u.uas)
     dyp.convert_unit_to(u.uas)
 
-    # UT1-UTC (s -> uas)
-    dut = dut * 15e6
-    dut.unit = u.uas
+    # UT1-UTC (s -> us)
+    dut.convert_unit_to(u.second / 1e6)
 
     # Nutation offset
     ddX.convert_unit_to(u.uas)
     ddY.convert_unit_to(u.uas)
 
-    t_eob_apr.add_columns([dxp, dyp, dut, ddX, ddY],
+    t_eob_oft.add_columns([dxp, dyp, dut, ddX, ddY],
                           names=["dxp_c04", "dyp_c04", "dut_c04",
                                  "ddX_c04", "ddY_c04"])
 
     # Output
     if ofile is not None:
         print("# Output file: %s" % (ofile))
+    else:
+        ofile = "c04_offset.txt"
 
-        fout = open(ofile, "w")
-        # header
-        print("# EOP and Nutation difference wrt C04\n"
-              "# Epoch  dXp  err  dYp  err  dUT  err  ddX  err  ddY  err\n"
-              "# mjd    mas  mas  mas  mas  mas  mas  mas  mas  mas  mas",
-              file=fout)
+    # Header
+    t_eob_oft.meta["comments"] = [
+        " EOP and Nutation difference wrt. C04 series",
+        " Columns  Units   Meaning",
+        "    1     day     Time Tag (MJD)",
+        "    3     uas     offset of X pole coordinate",
+        "    4     uas     offset of Y pole coordinate",
+        "    5     us      offset of UT1",
+        "    6     uas     offset of dX of Nutation offsets",
+        "    7     uas     offset of dY of Nutation offsets",
+        " Created date: %s." % time.strftime("%d/%m/%Y", time.localtime())]
 
-        # EOP offset
-        for (i, mjd) in enumerate(t_eob_apr["epoch_pmr"]):
-            print("%13.6f" % mjd, "  %+10.3f  %7.3f" * 5 %
-                  (dxp[i], t_eob_apr["xp_err"][i],
-                   dyp[i], t_eob_apr["yp_err"][i],
-                   dut[i], t_eob_apr["dut1_err"][i],
-                   ddX[i], t_eob_apr["dX_err"][i],
-                   ddY[i], t_eob_apr["dY_err"][i]), file=fout)
-
-        fout.close()
+    t_eob_oft.write(ofile, format="ascii.fixed_width_no_header",
+                    include_names=["epoch_pmr", "dxp_c04", "dyp_c04",
+                                   "dut_c04", "ddX_c04", "ddY_c04"],
+                    formats={"epoch_pmr": "%13.6f", "dxp_c04": "%+8.1f",
+                             "dyp_c04": "%+8.1f", "dut_c04": "%+8.1f",
+                             "ddX_c04": "%+8.1f", "ddY_c04": "%+8.1f"},
+                    delimiter="", overwrite=True)
 
     print("# ----------  END  ----------")
 
-    return t_eob_apr
+    return t_eob_oft
 
 
 # --------------------------------- MAIN -------------------------------

@@ -78,15 +78,14 @@ def write_into_crf(t_sou, crf_file, sln_label=""):
         " Created on %s." % time.strftime("%d/%m/%Y", time.localtime()),
         " "]
 
-
-t_sou.write(crf_file, format="ascii.fixed_width_no_header",
-            delimiter="",
-            exclude_names=["j2000_name", "total_obs",
-                             "total_sess", "pos_err"],
-            formats={"ivs_name": "%-8s", "iers_name": "%-8s",
-                     "ra": "%14.10f", "dec": "%+14.10f",
-                      "ra_err": "%10.4f", "dec_err": "%10.4f",
-                     "ra_dec_corr": "%+7.4f"}, overwrite=True)
+    t_sou.write(crf_file, format="ascii.fixed_width_no_header",
+                delimiter="",
+                exclude_names=["j2000_name", "total_obs",
+                               "total_sess", "pos_err"],
+                formats={"ivs_name": "%-8s", "iers_name": "%-8s",
+                         "ra": "%14.10f", "dec": "%+14.10f",
+                         "ra_err": "%10.4f", "dec_err": "%10.4f",
+                         "ra_dec_corr": "%+7.4f"}, overwrite=True)
 
 
 def convert_sou_to_crf(sou_file, sln_label=""):

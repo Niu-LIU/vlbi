@@ -139,11 +139,12 @@ def calc_cat_offset(t_cat1,  t_cat2):
                        t_sou_com["ra_1"], t_sou_com["dec_1"],
                        dra, dra_err, ddec, ddec_err,
                        dra_ddec_cov, dra_ddec_corr,
-                       ang_sep, X_a, X_d, X],
+                       ang_sep, X, X_a, X_d],
                       names=["ivs_name", "ra", "dec",
                              "dra", "dra_err", "ddec", "ddec_err",
                              "dra_ddec_cov", "dra_ddec_corr",
-                             "ang_sep", "X_a", "X_d", "X"])
+                             "ang_sep", "nor_sep",
+                             "nor_sep_ra", "nor_sep_dec"])
 
     return t_cat_oft
 

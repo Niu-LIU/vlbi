@@ -11,11 +11,14 @@ the program getpar.
 
 """
 
+from astropy import units as u
 from astropy.time import Time
-from astropy.table import Table
+from astropy.table import Table, Column
 import numpy as np
 import sys
-import matplotlib.pyplot as plt
+
+
+__all__ = ["calc_sess_epoch_from_name", "read_rms"]
 
 
 # ------------------------------  FUNCTIONS  ---------------------------
@@ -54,38 +57,6 @@ def calc_sess_epoch_from_name(sess_id):
     return epoch.jyear
 
 
-def plot_rms_num(obsnum, wrmsd, wrmsr):
-    '''Plot the wrms of delay / delay rate vs No.obs
-    '''
-    fig, (ax0, ax1) = plt.subplots(nrows=2, sharex=True)
-    ax0.plot(obsnum, wrmsd, '.')
-    ax0.set_title("Delay (ps)")
-    ax0.set_ylim([0, 200])
-    ax1.plot(obsnum, wrmsr, '.')
-    ax1.set_title("Delay rate (fs/s)")
-    ax1.set_ylim([0, 12500])
-    ax1.set_xlabel("Number of observations")
-    ax1.set_xlim([0, 30000])
-    plt.savefig("figures/wrms_num.eps")
-    plt.close()
-
-
-def plot_rms_epo(epo, wrmsd, wrmsr):
-    '''Plot the wrms of delay / delay rate vs No.obs
-    '''
-    fig, (ax0, ax1) = plt.subplots(nrows=2, sharex=True)
-    ax0.plot(epo, wrmsd, '.')
-    ax0.set_title("Delay (ps)")
-    ax0.set_ylim([0, 200])
-    ax1.plot(epo, wrmsr, '.')
-    ax1.set_title("Delay rate (fs/s)")
-    ax1.set_ylim([0, 12500])
-    ax1.set_xlabel("Number of observations")
-    ax1.set_xlim([1979, 2018])
-    plt.savefig("figures/wrms_epo.eps")
-    plt.close()
-
-
 def read_rms(rmsfile):
     '''Retrieve the result from .rms file.
 
@@ -108,38 +79,31 @@ def read_rms(rmsfile):
         overall wrms of postfit delay rate residuals, fsec/s
     '''
 
-    rmstable = Table.read(rmsfile, format="ascii.fixed_width_no_header",
-                          data_start=3)
+    rmstable = Table.read(rmsfile,
+                          format="ascii.fixed_width_no_header",
+                          data_start=3,
+                          col_starts=[10, 22, 31, 48],
+                          col_ends=[20, 28, 42, 58],
+                          names=["sess_name", "obs_num", "delay_rms", "delay_rate_rms"])
 
-    dbname = np.genfromtxt(rmsfile, dtype=str, usecols=(1,))
-    obsnum = np.genfromtxt(rmsfile, dtype=int, usecols=(2,))
-    wrmsd, wrmsr = np.genfromtxt(rmsfile, usecols=(3, 5), unpack=True)
+    # Add unit information
+    rmstable["delay_rms"].unit = u.second / 1e12
+    rmstable["delay_rate_rms"].unit = 1 / 1e15
 
+    # Calculate the epoch
     epo = [calc_sess_epoch_from_name(db) for db in rmstable["sess_name"]]
 
-    fnut = "%s.nut" % rmsfile[:-4]
-    dbname0 = np.genfromtxt(fnut, dtype=str, usecols=(1,))
-    epo0 = np.genfromtxt(fnut, usecols=(4,))
-    epo = np.zeros_like(epo0)
-    for i, db in enumerate(dbname):
-        j = np.where(dbname0 == db)[0][0]
-        epo[i] = epo0[j]
+    epo_col = Column(np.array(epo) << u.yr, name="epoch")
+    rmstable.add_column(epo_col, index=0)
+    rmstable.sort(["epoch"])
 
-    return dbname, obsnum, epo, wrmsd, wrmsr
+    return rmstable
 
 
-# Retrieve estimates.
-if len(sys.argv) == 1:
-    rmsfile = 'result/test.rms'
-else:
-    rmsfile = sys.argv[1]
-dbname, obsnum, epo, wrmsd, wrmsr = read_rms(rmsfile)
-# print(dbname[0],
-#       obsnum[0],
-#       epo[0],
-#       wrmsd[0],
-#       wrmsr[0])
+def main():
+    print("Nothing to do :-)")
 
-plot_rms_num(obsnum, wrmsd, wrmsr)
-plot_rms_epo(epo, wrmsd, wrmsr)
+
+if __name__ == "__main__":
+    main()
 # ------------------------------ END -----------------------------------

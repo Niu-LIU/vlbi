@@ -11,11 +11,12 @@ import numpy as np
 from astropy.table import Table, join, unique, Column
 import astropy.units as u
 from astropy.units import cds
-from astropy.coordinates import Angle
+from astropy.coordinates import SkyCoord, Angle
 import numpy as np
 import os
 import sys
 import time
+
 
 # My modules
 from .convert_func import RA_conv, DC_conv, date2mjd
@@ -132,17 +133,17 @@ def read_sou(sou_file):
     return t_sou
 
 
-def read_crf(crf_file):
+def read_crf(crffile):
     """Read radio source positions
 
     Parameters
     ----------
-    crf_file : string
+    crffile : string
         the full path of .cat file
 
     Return
     ------
-    t_crf : astropy.table object
+    tablecrf : astropy.table object
         |
         -- ivs_name : str
             IVS source name
@@ -172,37 +173,67 @@ def read_crf(crf_file):
             epoch of last observation (MJD)
     """
 
-    if not os.path.isfile(crf_file):
+    if not os.path.isfile(crffile):
         sys.exit()
 
-    t_crf = Table.read(crf_file, format="ascii.fixed_width_no_header",
-                       names=["ivs_name", "iers_name", "ra",
-                              "dec", "ra_err", "dec_err", "ra_dec_corr",
-                              "mean_epo", "beg_epo", "end_epo",
-                              "num_sess", "num_del", "num_delrate", "flag"])
+    # tablecrf = Table.read(crffile, format="ascii.fixed_width_no_header",
+    #                       names=["ivs_name", "iers_name",
+    #                              "ra_err", "dec_err", "ra_dec_corr",
+    #                              "mean_epo", "beg_epo", "end_epo",
+    #                              "num_sess", "num_del", "num_delrate", "flag"],
+    #                       col_starts=[0, 21, 64, 79, 90, 97,
+    #                                   105, 113, 121, 127, 134, 141],
+    #                       col_ends=[8, 59, 74, 88, 96, 104, 112, 120, 126, 133, 140, 144])
 
-    mask = (t_crf["num_del"] != 0)
-    # t_crf = Table(t_crf[mask], masked=False)
-    t_crf = t_crf[mask].filled()
+    tablecrf = Table.read(crffile, format="ascii",
+                          names=["ivs_name", "iers_name",
+                                 "ra_h", "ra_m", "ra_s",
+                                 "dec_d", "dec_m", "dec_s",
+                                 "ra_err", "dec_err", "ra_dec_corr",
+                                 "mean_epo", "beg_epo", "end_epo",
+                                 "num_sess", "num_del", "num_delrate", "flag"],
+                          exclude_names=["ra_h", "ra_m", "ra_s",
+                                         "dec_d", "dec_m", "dec_s"])
+
+    # Position
+    tradec = Table.read(crffile, format="ascii.fixed_width_no_header",
+                        names=["ra_dec"],
+                        col_starts=[21], col_ends=[59])
+
+    radec = SkyCoord(tradec["ra_dec"], unit=(u.hourangle, u.deg))
+
+    racol = Column(radec.ra.deg, name="ra", unit=u.deg)
+    deccol = Column(radec.dec.deg, name="dec", unit=u.deg)
+
+    tablecrf.add_columns([racol, deccol], indexes=[2, 2])
+
+    mask = (tablecrf["num_del"] != 0)
+    # tablecrf = Table(tablecrf[mask], masked=False)
+    tablecrf = tablecrf[mask].filled()
+
+    # Multipliy the formal error in R.A. by a factor of cos(Decl.)
+    factor = np.cos(radec.dec.radian)
+    tablecrf["ra_err"] = tablecrf["ra_err"] * factor * 15
 
     # unit
-    t_crf["ra"].unit = u.deg
-    t_crf["dec"].unit = u.deg
-    t_crf["ra_err"].unit = u.mas
-    t_crf["dec_err"].unit = u.mas
-    t_crf["mean_epo"].unit = cds.MJD
-    t_crf["beg_epo"].unit = cds.MJD
-    t_crf["end_epo"].unit = cds.MJD
+    tablecrf["ra_err"].unit = u.arcsecond
+    tablecrf["dec_err"].unit = u.arcsecond
+    tablecrf["mean_epo"].unit = cds.MJD
+    tablecrf["beg_epo"].unit = cds.MJD
+    tablecrf["end_epo"].unit = cds.MJD
+
+    tablecrf["ra_err"].convert_unit_to(u.mas)
+    tablecrf["dec_err"].convert_unit_to(u.mas)
 
     # Calculate the semi-major axis of error ellipse
-    pos_err = pos_err_calc(t_crf["ra_err"], t_crf["dec_err"],
-                           t_crf["ra_dec_corr"])
+    pos_err = pos_err_calc(tablecrf["ra_err"], tablecrf["dec_err"],
+                           tablecrf["ra_dec_corr"])
 
     # Add the semi-major axis of error ellipse to the table
-    t_crf.add_column(pos_err, name="pos_err", index=7)
-    t_crf["pos_err"].unit = u.mas
+    tablecrf.add_column(pos_err, name="pos_err", index=7)
+    # tablecrf["pos_err"].unit = u.mas
 
-    return t_crf
+    return tablecrf
 
 
 def read_cat(cat_file):

@@ -91,11 +91,9 @@ def calc_eop_offset(t_eop1,  t_eop2):
     dyp.convert_unit_to(u.uas)
     dyp_err.convert_unit_to(u.uas)
 
-    # UT1-UTC (s -> uas)
-    dut = dut * 15e6
-    dut.unit = u.uas
-    dut_err = dut_err * 15e6
-    dut_err.unit = u.uas
+    # UT1-UTC (s -> us)
+    dut.convert_unit_to(u.second / 1e6)
+    dut_err.convert_unit_to(u.second / 1e6)
 
     # Nutation offset
     ddX.convert_unit_to(u.uas)
@@ -134,12 +132,12 @@ def save_eop_offset_txt(t_eop_offset, offset_file):
         "    2     day     Time Tag for Nutation (MJD)",
         "    3     uas     offset of X pole coordinate",
         "    4     uas     offset of Y pole coordinate",
-        "    5     uas     offset of UT1",
+        "    5     us      offset of UT1",
         "    6     uas     offset of dX of Nutation offsets",
         "    7     uas     offset of dY of Nutation offsets",
         "    8     uas     formal uncertainty for offset of X pole coordinate",
         "    9     uas     formal uncertainty for offset of Y pole coordinate",
-        "   10     uas     formal uncertainty for offset of UT1",
+        "   10     us      formal uncertainty for offset of UT1",
         "   11     uas     formal uncertainty for offset of Nutation dX",
         "   12     uas     formal uncertainty for offset of Nutation dY",
         " Created date: %s." % time.strftime("%d/%m/%Y", time.localtime())]
@@ -188,8 +186,8 @@ def read_eop_offset(eop_oft_file):
     t_eop_oft["dxp_err"].unit = u.uas
     t_eop_oft["dyp_err"].unit = u.uas
 
-    t_eop_oft["dut"].unit = u.uas
-    t_eop_oft["dut_err"].unit = u.uas
+    t_eop_oft["dut"].unit = u.second / 1e6
+    t_eop_oft["dut_err"].unit = u.second / 1e6
 
     t_eop_oft["ddX"].unit = u.uas
     t_eop_oft["ddY"].unit = u.uas
@@ -199,11 +197,7 @@ def read_eop_offset(eop_oft_file):
     return t_eop_oft
 
 
-def main():
+if __name__ == '__main__':
     print('Nothing to do!')
     pass
-
-
-if __name__ == '__main__':
-    main()
 # --------------------------------- END --------------------------------
