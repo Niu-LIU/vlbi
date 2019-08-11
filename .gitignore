@@ -102,3 +102,17 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# Some files
+.ipynb_checkpoints/
+build/
+IPython-*
+*.fits*
+*.gz
+*.pdf
+*.jpg
+*.pyc
+*.tex
+exec*.ipynb
+.DS_Store
+notes/
