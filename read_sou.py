@@ -21,6 +21,7 @@ import time
 # My modules
 from .convert_func import RA_conv, DC_conv, date2mjd
 from .pos_err import pos_err_calc
+from .sou_name import get_souname
 
 __all__ = ["read_sou", "read_crf", "read_cat"]
 
@@ -81,7 +82,8 @@ def read_sou(sou_file):
 
     ra_dec_table = Table.read(sou_file, format="ascii.fixed_width_no_header",
                               names=["ra", "dec", "used_obs", ],
-                              col_starts=[20, 57, 117], col_ends=[41, 78, 122])
+                              col_starts=[20, 57, 117],
+                              col_ends=[41, 78, 122])
 
     # Remove source with 0 observation used in th solution
     mask = (t_sou["used_obs"] != 0)
@@ -129,6 +131,10 @@ def read_sou(sou_file):
     # Add the semi-major axis of error ellipse to the table
     t_sou.add_column(pos_err, name="pos_err", index=7)
     t_sou["pos_err"].unit = u.mas
+
+    # Add IERS and ICRF designations of source names
+    tsouname = get_souname()
+    t_sou = join(tsouname, t_sou, keys="ivs_name", join_type="right")
 
     return t_sou
 

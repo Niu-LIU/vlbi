@@ -51,7 +51,7 @@ def DC_conv(DCstr):
     degs, ams, ass = DCstr[4:].split("_")
 
     # Determine the sign
-    if DCstr[0] is "_":
+    if DCstr[4] == "-":
         DC = float(degs) - float(ams) / 60. - float(ass) / 3600.
     else:
         DC = float(degs) + float(ams) / 60. + float(ass) / 3600.
