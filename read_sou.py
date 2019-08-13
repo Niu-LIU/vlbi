@@ -129,7 +129,7 @@ def read_sou(sou_file):
                            t_sou["ra_dec_corr"])
 
     # Add the semi-major axis of error ellipse to the table
-    t_sou.add_column(pos_err, name="pos_err", index=7)
+    t_sou.add_column(pos_err, name="pos_err", index=6)
     t_sou["pos_err"].unit = u.mas
 
     # Add IERS and ICRF designations of source names
