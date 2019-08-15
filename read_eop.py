@@ -328,23 +328,13 @@ def read_eob(eob_file):
     t_eob["sess_dur"].unit = u.hour
     t_eob["wrms"].unit = u.ps
 
-    # # Convert the unit
-    # t_eob["xp"] = t_eob["xp"].to(u.mas)
-    # t_eob["xp_err"] = t_eob["xp_err"].to(u.mas)
-    # t_eob["xp"] = t_eob["yp"].to(u.mas)
-    # t_eob["yp_err"] = t_eob["yp_err"].to(u.mas)
-    # t_eob["xp_rate"] = t_eob["xp_rate"].to(u.mas / u.day)
-    # t_eob["xp_rate_err"] = t_eob["xp_rate_err"].to(u.mas / u.day)
-    # t_eob["yp_rate"] = t_eob["yp_rate"].to(u.mas / u.day)
-    # t_eob["yp_rate_err"] = t_eob["yp_rate_err"].to(u.mas / u.day)
-    # t_eob["ut1_tai"] = t_eob["ut1_tai"] * 15e6
-    # t_eob["dut1_err"] = t_eob["dut1_err"] * 15e6
-    # t_eob["ut1_rate"] = t_eob["ut1_rate"] * 15e6
-    # t_eob["ut1_rate_err"] = t_eob["ut1_rate_err"] * 15e6
-    # t_eob["ut1_tai"].unit = u.mas
-    # t_eob["dut1_err"].unit = u.mas
-    # t_eob["ut1_rate"].unit = u.mas / u.day
-    # t_eob["ut1_rate_err"].unit = u.mas / u.day
+    # Convert the unit
+    t_eob["xp_err"].convert_unit_to(u.mas)
+    t_eob["yp_err"] = t_eob["yp_err"].to(u.mas)
+    t_eob["xp_rate_err"].convert_unit_to(u.mas / u.day)
+    t_eob["yp_rate_err"].convert_unit_to(u.mas / u.day)
+    t_eob["dut1_err"].convert_unit_to(u.second / 1e3)
+    t_eob["ut1_rate_err"].convert_unit_to(u.second / 1e3)
 
     # Remove the data points which are not estimated in the solution
     mask = ((t_eob["xp_err"] != 0) & (t_eob["yp_err"] != 0)

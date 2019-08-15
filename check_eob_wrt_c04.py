@@ -20,16 +20,19 @@ import numpy as np
 import os
 from scipy.interpolate import CubicSpline
 import sys
+from sys import platform as _platform
+import time
+
 # My module
-from my_progs.vlbi.delta_tai_utc import delta_tai_utc_calc
+from .delta_tai_utc import delta_tai_utc_calc
+from .get_dir import get_data_dir
 
 
 __all__ = {"read_c04", "calc_c04_apr", "calc_c04_offset"}
 
 
 # -----------------------------  FUNCTIONS -----------------------------
-def read_c04(c04_file="/Users/Neo/tmp/git/Niu-LIU/vlbi/aux_files/"
-             "eopc04_IAU2000.62-now.txt"):
+def read_c04(c04_file=None):
     """Read EOP from C04 series.
 
     Parameters
@@ -41,6 +44,10 @@ def read_c04(c04_file="/Users/Neo/tmp/git/Niu-LIU/vlbi/aux_files/"
     ----------
     t_c04 : astropy.table object
     """
+
+    if c04_file is None:
+        datadir = get_data_dir()
+        c04_file = "{}/eopc04_IAU2000.62-now.txt".format(datadir)
 
     if not os.path.isfile(c04_file):
         print("Couldn't find the file", c04_file)
@@ -101,26 +108,23 @@ def read_c04_array(c04_file=None):
     yp : array, float
         yp position of CIP in ITRS, as
     ut : array, float
-        UT1 - UTC, ms
+        UT1 - UTC, second
     # LOD : array, float
-    #     length of day, ms
+    #     length of day, second
     dX : array, float
-        xp component of CPO, mas
+        xp component of CPO, as
     dY : array, float
-        yp component of CPO, mas
+        yp component of CPO, as
     """
 
     if c04_file is None:
-        c04_file = ("/Users/Neo/tmp/git/Niu-LIU/vlbi/aux_files/"
-                    "eopc04_IAU2000.62-now.txt")
+        datadir = get_data_dir()
+        c04_file = "{}/eopc04_IAU2000.62-now.txt".format(datadir)
 
-    epoch_mjd, xp, yp, ut = np.genfromtxt(c04_file, skip_header=14,
+    epoch_mjd, xp, yp, ut = np.genfromtxt(c04_file,
                                           usecols=np.arange(3, 7), unpack=True)
-    dX, dY = np.genfromtxt(c04_file, skip_header=14,
-                           usecols=(8, 9), unpack=True)
-
-    # Convert unit from arc-sec to mas to be consistent with .eob file
-    dX, dY = dX * 1000, dY * 1000
+    dX, dY = np.genfromtxt(c04_file, usecols=(8, 9), unpack=True)
+    # skip_header=14,
 
     return epoch_mjd, xp, yp, ut, dX, dY
 
@@ -218,7 +222,7 @@ def interpolate_pmr(epoch_pmr, epoch_c04, xp_c04, yp_c04, ut_c04):
 
 
 def interpolate_nut(epoch_nut, epoch_c04, dX_c04, dY_c04):
-    """Get interpolated Nutation offset at a certain epoch.
+    """Get interpolated Nutation offset at                                           usecolsa certain epoch.
 
 
     Parameters
@@ -249,7 +253,8 @@ def interpolate_nut(epoch_nut, epoch_c04, dX_c04, dY_c04):
         if ind == 0 or ind >= epoch_c04.size:
             # normally it won't happen!!
             print("The epoch %f was too early or too late"
-                  " for the C04 series." % epoch_nut[i])
+                  " for the C04 series." % epoch_nut[    # t_eob["ut1_tai"] = t_eob["ut1_tai"] * 15e6
+                      i])
             sys.exit()
 
         elif ind < 9 or epoch_c04.size - ind < 10:
@@ -298,12 +303,13 @@ def calc_c04_apr(t_eob, ofile=None):
     [epoch_c04, xp_c04, yp_c04, ut_c04, dX_c04, dY_c04] = read_c04_array()
 
     # Interpolation
-
     # For polar motion and UT1
     xp_apr, yp_apr, dut_apr = interpolate_pmr(
         epoch_pmr, epoch_c04, xp_c04, yp_c04, ut_c04)
 
     # For nutation offset
+    # Convert unit from arc-sec to mas to be consistent with .eob file
+    dX, dY = dX * 1000, dY * 1000
     dX_apr, dY_apr = interpolate_nut(epoch_nut, epoch_c04, dX_c04, dY_c04)
 
     # Creat a table to store the a priori information
@@ -337,11 +343,11 @@ def calc_c04_apr(t_eob, ofile=None):
         " EOP and nutation series wrt. C04 series",
         " Columns  Units   Meaning",
         "    1     day     Time Tag (MJD)",
-        "    3     uas     X pole coordinate",
-        "    4     uas     Y pole coordinate",
-        "    5     us      UT1 - TAI",
-        "    6     uas     dX of Nutation offsets",
-        "    7     uas     dY of Nutation offsets",
+        "    3      as     X pole coordinate",
+        "    4      as     Y pole coordinate",
+        "    5     sec      UT1 - TAI",
+        "    6     mas     dX of Nutation offsets",
+        "    7     mas     dY of Nutation offsets",
         " Created date: %s." % time.strftime("%d/%m/%Y", time.localtime())]
 
     t_c04_apr.write(ofile, format="ascii.fixed_width_no_header",
@@ -398,13 +404,17 @@ def read_c04_apr(c04_apr_file=None):
     return t_c04
 
 
-def calc_c04_offset(t_eob, ofile=None):
+def calc_c04_offset(t_eob, aprfile=None, oftfile=None):
     """Calculate the EOP offset wrt. the C04 series.
 
     Parameters
     ----------
     t_eob : astropy.table object
         EOP estimates from .eob file
+    aprfile : string
+        a prori file of C04 series
+    oftfile : string
+        offset wrt. C04 series a priori
 
     Returns
     -------
@@ -413,37 +423,43 @@ def calc_c04_offset(t_eob, ofile=None):
     """
 
     # C04 a priori values
-    t_c04_apr = calc_c04_apr(t_eob)
+    t_c04_apr = calc_c04_apr(t_eob, aprfile)
 
     # Cross-match two tables by sessoion identifier
     t_eob_oft = join(t_eob, t_c04_apr, keys="db_name")
 
-    dxp = t_eob_oft["xp_c04_apr"] - t_eob_oft["xp"]
-    dyp = t_eob_oft["yp_c04_apr"] - t_eob_oft["yp"]
-    dut = t_eob_oft["ut1_tai_c04_apr"] - t_eob_oft["ut1_tai"]
-    ddX = t_eob_oft["dX_c04_apr"] - t_eob_oft["dX"]
-    ddY = t_eob_oft["dY_c04_apr"] - t_eob_oft["dY"]
+    dxp = t_eob_oft["xp"] - t_eob_oft["xp_c04_apr"]
+    dyp = t_eob_oft["yp"] - t_eob_oft["yp_c04_apr"]
+    dut = t_eob_oft["ut1_tai"] - t_eob_oft["ut1_tai_c04_apr"]
+    ddX = t_eob_oft["dX"] - t_eob_oft["dX_c04_apr"]
+    ddY = t_eob_oft["dY"] - t_eob_oft["dY_c04_apr"]
 
+    # Convert unit from arcsec/second to micro-arcsec/second
     # Polar motion
     dxp.convert_unit_to(u.uas)
     dyp.convert_unit_to(u.uas)
+    t_eob_oft["xp_err"].convert_unit_to(u.uas)
+    t_eob_oft["yp_err"].convert_unit_to(u.uas)
 
     # UT1-UTC (s -> us)
     dut.convert_unit_to(u.second / 1e6)
+    t_eob_oft["ut1_tai"].convert_unit_to(u.second / 1e6)
 
     # Nutation offset
     ddX.convert_unit_to(u.uas)
     ddY.convert_unit_to(u.uas)
+    t_eob_oft["dX_err"].convert_unit_to(u.uas)
+    t_eob_oft["dY_err"].convert_unit_to(u.uas)
 
     t_eob_oft.add_columns([dxp, dyp, dut, ddX, ddY],
                           names=["dxp_c04", "dyp_c04", "dut_c04",
                                  "ddX_c04", "ddY_c04"])
 
     # Output
-    if ofile is not None:
-        print("# Output file: %s" % (ofile))
+    if oftfile is not None:
+        print("# Output file: %s" % (oftfile))
     else:
-        ofile = "c04_offset.txt"
+        oftfile = "c04_offset.txt"
 
     # Header
     t_eob_oft.meta["comments"] = [
@@ -457,15 +473,13 @@ def calc_c04_offset(t_eob, ofile=None):
         "    7     uas     offset of dY of Nutation offsets",
         " Created date: %s." % time.strftime("%d/%m/%Y", time.localtime())]
 
-    t_eob_oft.write(ofile, format="ascii.fixed_width_no_header",
+    t_eob_oft.write(oftfile, format="ascii.fixed_width_no_header",
                     include_names=["epoch_pmr", "dxp_c04", "dyp_c04",
                                    "dut_c04", "ddX_c04", "ddY_c04"],
                     formats={"epoch_pmr": "%13.6f", "dxp_c04": "%+8.1f",
                              "dyp_c04": "%+8.1f", "dut_c04": "%+8.1f",
                              "ddX_c04": "%+8.1f", "ddY_c04": "%+8.1f"},
                     delimiter="", overwrite=True)
-
-    print("# ----------  END  ----------")
 
     return t_eob_oft
 

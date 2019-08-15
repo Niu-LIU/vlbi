@@ -15,46 +15,15 @@ from astropy.table import Table
 import numpy as np
 import os
 import time
-from sys import platform as _platform
+
+# My modules
+from .get_dir import get_data_dir
+
 
 __all__ = ["get_souname"]
 
 
 # -----------------------------  FUNCTIONS -----------------------------
-def get_datadir():
-    """Get the diretory of source name data
-
-    Returns
-    -------
-    datadir: string
-        directory of diretory to put source name data
-
-    """
-
-    # Check the type of OS and get the home diretory path
-    if _platform == "linux" or _platform == "linux2":
-        # linux
-        homedir = os.getenv("HOME")
-    elif _platform == "darwin":
-        # MAC OS X
-        homedir = os.getenv("HOME")
-    elif _platform == "win32":
-        # Windows
-        print("Not implemented yet")
-        exit()
-    elif _platform == "win64":
-        # Windows 64-bit
-        print("Not implemented yet")
-        exit()
-    else:
-        print("Weird! What kind of OS do you use?")
-        exit()
-
-    datadir = "{}/.ipython/my_progs/vlbi/aux_files".format(homedir)
-
-    return datadir
-
-
 def rewrite_srcnames():
     """Read source names.
 
@@ -66,6 +35,8 @@ def rewrite_srcnames():
     ----------
     None
     """
+
+    datadir = get_datadir()
 
     ifile = open("{}/IVS_SrcNamesTable.txt".format(datadir), "r")
     ofile = open("{}/IVS_SrcNamesTable.csv".format(datadir), "w")
@@ -100,22 +71,22 @@ def rewrite_srcnames():
     ofile.close()
 
 
-def rewrite_sourcename(datafile=None):
+def rewrite_sourcename(datafil=None):
     """Read source names from a file named "source.names" and rewrite it.
 
     Parameters
     ----------
-    datafile : str
+    datafil : str
         full path of source.names. if None, default value will be used.
 
     """
 
-    if datafile is None:
+    if datafil is None:
         datadir = get_datadir()
-        datafile = "{}/source.names".format(datadir)
+        datafil = "{}/source.names".format(datadir)
 
-    # print(datafile)
-    ifile = open(datafile, "r")
+    # print(datafil)
+    ifile = open(datafil, "r")
 
     ivs_name = []
     iers_name = []
@@ -174,12 +145,12 @@ def get_souname():
     """
 
     datadir = get_datadir()
-    datafile = "{}/source.names.csv".format(datadir)
+    datafil = "{}/source.names.csv".format(datadir)
 
     rewrite_sourcename()
 
     # empty array to store data
-    souname = Table.read(datafile, format="ascii.csv",
+    souname = Table.read(datafil, format="ascii.csv",
                          names=["ivs_name", "iers_name"])
 
     # Eliminate duplicate sources
