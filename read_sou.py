@@ -156,7 +156,7 @@ def read_crf(crffile):
         -- ra : float
             right ascension (degree)
         -- ra_err
-            formal uncertainty in RA (mas)
+            formal uncertainty in RA*cos(decl.) (mas)
         -- dec
             declination (degree)
         -- dec_err

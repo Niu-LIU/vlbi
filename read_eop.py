@@ -334,7 +334,7 @@ def read_eob(eob_file):
     t_eob["xp_rate_err"].convert_unit_to(u.mas / u.day)
     t_eob["yp_rate_err"].convert_unit_to(u.mas / u.day)
     t_eob["dut1_err"].convert_unit_to(u.second / 1e3)
-    t_eob["ut1_rate_err"].convert_unit_to(u.second / 1e3)
+    t_eob["ut1_rate_err"].convert_unit_to(u.second / 1e3 / u.year)
 
     # Remove the data points which are not estimated in the solution
     mask = ((t_eob["xp_err"] != 0) & (t_eob["yp_err"] != 0)

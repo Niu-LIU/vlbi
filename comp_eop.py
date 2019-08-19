@@ -64,11 +64,11 @@ def calc_eop_offset(t_eop1,  t_eop2):
           % (len(t_eop1), len(t_eop2), len(t_eop_com)))
 
     # Calculate the offset and the uncertainties
-    dxp = t_eop_com["xp_2"] - t_eop_com["xp_1"]
-    dyp = t_eop_com["yp_2"] - t_eop_com["yp_1"]
-    dut = t_eop_com["ut1_tai_2"] - t_eop_com["ut1_tai_1"]
-    ddX = t_eop_com["dX_2"] - t_eop_com["dX_1"]
-    ddY = t_eop_com["dY_2"] - t_eop_com["dY_1"]
+    dxp = t_eop_com["xp_1"] - t_eop_com["xp_2"]
+    dyp = t_eop_com["yp_1"] - t_eop_com["yp_2"]
+    dut = t_eop_com["ut1_tai_1"] - t_eop_com["ut1_tai_2"]
+    ddX = t_eop_com["dX_1"] - t_eop_com["dX_2"]
+    ddY = t_eop_com["dY_1"] - t_eop_com["dY_2"]
 
     dxp_err = root_sum_square(t_eop_com["xp_err_1"], t_eop_com["xp_err_2"])
     dyp_err = root_sum_square(t_eop_com["yp_err_1"], t_eop_com["yp_err_2"])
@@ -78,12 +78,12 @@ def calc_eop_offset(t_eop1,  t_eop2):
 
     # Convert the unit
     # Time tag
-    from astropy.time import Time
-    t_pmr_mjd = Time(t_eop_com["epoch_pmr"], format="mjd")
-    t_pmr = Column(t_pmr_mjd.jyear, unit=u.year)
-
-    t_nut_mjd = Time(t_eop_com["epoch_nut"], format="mjd")
-    t_nut = Column(t_nut_mjd.jyear, unit=u.year)
+    # from astropy.time import Time
+    # t_pmr_mjd = Time(t_eop_com["epoch_pmr"], format="mjd")
+    # t_pmr = Column(t_pmr_mjd.jyear, unit=u.year)
+    #
+    # t_nut_mjd = Time(t_eop_com["epoch_nut"], format="mjd")
+    # t_nut = Column(t_nut_mjd.jyear, unit=u.year)
 
     # Polar motion
     dxp.convert_unit_to(u.uas)
@@ -102,7 +102,8 @@ def calc_eop_offset(t_eop1,  t_eop2):
     ddY_err.convert_unit_to(u.uas)
 
     # Add these columns to the combined table.
-    t_eop_offset = Table([t_eop_com["db_name"], t_pmr, t_nut,
+    t_eop_offset = Table([t_eop_com["db_name"], t_eop_com["epoch_pmr"],
+                          t_eop_com["epoch_nut"],
                           dxp, dyp, dut, ddX, ddY,
                           dxp_err, dyp_err, dut_err, ddX_err, ddY_err],
                          names=["db_name", "epoch_pmr", "epoch_nut",
@@ -199,5 +200,4 @@ def read_eop_offset(eop_oft_file):
 
 if __name__ == '__main__':
     print('Nothing to do!')
-    pass
 # --------------------------------- END --------------------------------

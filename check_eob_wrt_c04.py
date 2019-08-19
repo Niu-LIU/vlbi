@@ -309,7 +309,7 @@ def calc_c04_apr(t_eob, ofile=None):
 
     # For nutation offset
     # Convert unit from arc-sec to mas to be consistent with .eob file
-    dX, dY = dX * 1000, dY * 1000
+    dX_c04, dY_c04 = dX_c04 * 1000, dY_c04 * 1000
     dX_apr, dY_apr = interpolate_nut(epoch_nut, epoch_c04, dX_c04, dY_c04)
 
     # Creat a table to store the a priori information
@@ -354,10 +354,10 @@ def calc_c04_apr(t_eob, ofile=None):
                     include_names=["epoch", "xp_c04_apr", "yp_c04_apr",
                                    "ut1_tai_c04_apr",
                                    "dX_c04_apr", "dY_c04_apr"],
-                    formats={"epoch_pmr": "%13.6f", "dxp_c04_apr": "%+14.6f",
-                             "dyp_c04_apr": "%+14.6f",
+                    formats={"epoch": "%13.6f", "xp_c04_apr": "%+14.6f",
+                             "yp_c04_apr": "%+14.6f",
                              "ut1_tai_c04_apr": "%+14.6f",
-                             "ddX_c04_apr": "%+8.3f", "ddY_c04_apr": "%+8.3f"},
+                             "dX_c04_apr": "%+8.3f", "dY_c04_apr": "%+8.3f"},
                     delimiter="", overwrite=True)
 
     return t_c04_apr
@@ -444,6 +444,7 @@ def calc_c04_offset(t_eob, aprfile=None, oftfile=None):
     # UT1-UTC (s -> us)
     dut.convert_unit_to(u.second / 1e6)
     t_eob_oft["ut1_tai"].convert_unit_to(u.second / 1e6)
+    t_eob_oft["dut1_err"].convert_unit_to(u.second / 1e6)
 
     # Nutation offset
     ddX.convert_unit_to(u.uas)
