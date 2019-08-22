@@ -61,9 +61,9 @@ def read_sou(sou_file):
             number of sessions used in the solution
         -- total_sess
             number of total sessions of this source
-        -- beg_date
+        -- beg_epoch
             epoch of first observation (MJD)
-        -- end_date
+        -- end_epoch
             epoch of last observation (MJD)
     """
 
@@ -74,10 +74,10 @@ def read_sou(sou_file):
                        names=("ivs_name", "ra", "ra_err",
                               "dec", "dec_err", "ra_dec_corr",
                               "used_obs", "total_obs", "used_sess",
-                              "total_sess", "beg_date", "end_date"),
+                              "total_sess", "beg_epoch", "end_epoch"),
                        col_starts=(10, 24, 45, 61, 82, 98, 117,
                                    132, 150, 164, 181, 202),
-                       col_ends=(18, 41, 55, 78, 92, 104, 122,
+                       col_ends=(17, 41, 55, 78, 92, 104, 122,
                                  139, 155, 170, 191, 212))
 
     ra_dec_table = Table.read(sou_file, format="ascii.fixed_width_no_header",
@@ -103,22 +103,22 @@ def read_sou(sou_file):
         dec[i] = DC_conv(ra_dec_tablei["dec"])
 
     for i, t_soui in enumerate(t_sou):
-        date_beg[i] = date2mjd(t_soui["beg_date"])
-        date_end[i] = date2mjd(t_soui["end_date"])
+        date_beg[i] = date2mjd(t_soui["beg_epoch"])
+        date_end[i] = date2mjd(t_soui["end_epoch"])
 
     # replace original columns with new columns
     t_sou["ra"] = ra
     t_sou["dec"] = dec
-    t_sou["beg_date"] = date_beg
-    t_sou["end_date"] = date_end
+    t_sou["beg_epoch"] = date_beg
+    t_sou["end_epoch"] = date_end
 
     # Add unit information
     t_sou["ra"].unit = u.deg
     t_sou["dec"].unit = u.deg
     t_sou["ra_err"].unit = u.mas
     t_sou["dec_err"].unit = u.mas
-    t_sou["beg_date"].unit = cds.MJD
-    t_sou["end_date"].unit = cds.MJD
+    t_sou["beg_epoch"].unit = cds.MJD
+    t_sou["end_epoch"].unit = cds.MJD
 
     # Multipliy the formal error in R.A. by a factor of cos(Decl.)
     factor = np.cos(Angle(t_sou["dec"]).radian)
@@ -135,6 +135,10 @@ def read_sou(sou_file):
     # Add IERS and ICRF designations of source names
     tsouname = get_souname()
     t_sou = join(tsouname, t_sou, keys="ivs_name", join_type="right")
+
+    # Fill the empty filed of IERS name by the IVS name
+    for i in t_sou["iers_name"].mask.nonzero()[0]:
+        t_sou[i]["iers_name"] = t_sou[i]["ivs_name"]
 
     return t_sou
 
@@ -153,6 +157,8 @@ def read_crf(crffile):
         |
         -- ivs_name : str
             IVS source name
+        -- iers_name : str
+            IERS source name
         -- ra : float
             right ascension (degree)
         -- ra_err
@@ -173,9 +179,9 @@ def read_crf(crffile):
             number of sessions used in the solution
         -- total_sess
             number of total sessions of this source
-        -- beg_date
+        -- beg_epoch
             epoch of first observation (MJD)
-        -- end_date
+        -- end_epoch
             epoch of last observation (MJD)
     """
 
@@ -185,8 +191,8 @@ def read_crf(crffile):
     # tablecrf = Table.read(crffile, format="ascii.fixed_width_no_header",
     #                       names=["ivs_name", "iers_name",
     #                              "ra_err", "dec_err", "ra_dec_corr",
-    #                              "mean_epo", "beg_epo", "end_epo",
-    #                              "num_sess", "num_del", "num_delrate", "flag"],
+    #                              "mean_epoch", "beg_epoch", "end_epoch",
+    #                              "used_sess", "used_obs", "num_delrate", "flag"],
     #                       col_starts=[0, 21, 64, 79, 90, 97,
     #                                   105, 113, 121, 127, 134, 141],
     #                       col_ends=[8, 59, 74, 88, 96, 104, 112, 120, 126, 133, 140, 144])
@@ -196,10 +202,11 @@ def read_crf(crffile):
                                  "ra_h", "ra_m", "ra_s",
                                  "dec_d", "dec_m", "dec_s",
                                  "ra_err", "dec_err", "ra_dec_corr",
-                                 "mean_epo", "beg_epo", "end_epo",
-                                 "num_sess", "num_del", "num_delrate", "flag"],
+                                 "mean_epoch", "beg_epoch", "end_epoch",
+                                 "used_sess", "used_obs", "num_delrate", "flag"],
                           exclude_names=["ra_h", "ra_m", "ra_s",
-                                         "dec_d", "dec_m", "dec_s"])
+                                         "dec_d", "dec_m", "dec_s",
+                                         "num_delrate"])
 
     # Position
     tradec = Table.read(crffile, format="ascii.fixed_width_no_header",
@@ -213,7 +220,7 @@ def read_crf(crffile):
 
     tablecrf.add_columns([racol, deccol], indexes=[2, 2])
 
-    mask = (tablecrf["num_del"] != 0)
+    mask = (tablecrf["used_obs"] != 0)
     # tablecrf = Table(tablecrf[mask], masked=False)
     tablecrf = tablecrf[mask].filled()
 
@@ -224,9 +231,9 @@ def read_crf(crffile):
     # unit
     tablecrf["ra_err"].unit = u.arcsecond
     tablecrf["dec_err"].unit = u.arcsecond
-    tablecrf["mean_epo"].unit = cds.MJD
-    tablecrf["beg_epo"].unit = cds.MJD
-    tablecrf["end_epo"].unit = cds.MJD
+    tablecrf["mean_epoch"].unit = cds.MJD
+    tablecrf["beg_epoch"].unit = cds.MJD
+    tablecrf["end_epoch"].unit = cds.MJD
 
     tablecrf["ra_err"].convert_unit_to(u.mas)
     tablecrf["dec_err"].convert_unit_to(u.mas)
@@ -256,6 +263,8 @@ def read_cat(cat_file):
         |
         -- ivs_name : str
             IVS source name
+        -- iers_name : str
+            IERS source name
         -- ra : float
             right ascension (degree)
         -- ra_err
@@ -276,9 +285,9 @@ def read_cat(cat_file):
             number of sessions used in the solution
         -- total_sess
             number of total sessions of this source
-        -- beg_date
+        -- beg_epoch
             epoch of first observation (MJD)
-        -- end_date
+        -- end_epoch
             epoch of last observation (MJD)
     """
 
@@ -289,20 +298,20 @@ def read_cat(cat_file):
         cat_file, dtype=str, usecols=(0, 1), unpack=True)
     ra, ra_err, dec, dec_err, ra_dec_corr = np.genfromtxt(
         cat_file, usecols=range(2, 7), unpack=True)
-    num_sess, num_del = np.genfromtxt(
+    used_sess, used_obs = np.genfromtxt(
         cat_file, dtype=int, usecols=(7, 8), unpack=True)
-    mean_epo, beg_epo, end_epo = np.genfromtxt(
+    mean_epoch, beg_epoch, end_epoch = np.genfromtxt(
         cat_file, usecols=(9, 10, 11), unpack=True)
 
     t_cat = Table([ivs_name, iers_name,
                    ra, dec, ra_err, dec_err, ra_dec_corr,
-                   num_sess, num_del, mean_epo, beg_epo, end_epo],
+                   used_sess, used_obs, mean_epoch, beg_epoch, end_epoch],
                   names=["ivs_name", "iers_name",
                          "ra", "dec", "ra_err", "dec_err", "ra_dec_corr",
-                         "num_sess", "num_del",
-                         "mean_epo", "beg_epo", "end_epo"])
+                         "used_sess", "used_obs",
+                         "mean_epoch", "beg_epoch", "end_epoch"])
 
-    mask = (t_cat["num_del"] != 0)
+    mask = (t_cat["used_obs"] != 0)
     t_cat = t_cat[mask].filled()
 
     # unit
@@ -310,9 +319,9 @@ def read_cat(cat_file):
     t_cat["dec"].unit = u.deg
     t_cat["ra_err"].unit = u.mas
     t_cat["dec_err"].unit = u.mas
-    t_cat["mean_epo"].unit = cds.MJD
-    t_cat["beg_epo"].unit = cds.MJD
-    t_cat["end_epo"].unit = cds.MJD
+    t_cat["mean_epoch"].unit = cds.MJD
+    t_cat["beg_epoch"].unit = cds.MJD
+    t_cat["end_epoch"].unit = cds.MJD
 
     # Calculate the semi-major axis of error ellipse
     pos_err = pos_err_calc(t_cat["ra_err"], t_cat["dec_err"],

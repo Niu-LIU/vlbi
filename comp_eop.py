@@ -20,7 +20,7 @@ import os
 import time
 
 
-__all__ = {"calc_eop_offset", "save_eop_offset_txt"}
+__all__ = {"calc_eop_offset", "save_eop_offset"}
 
 
 # -----------------------------  FUNCTIONS -----------------------------
@@ -30,103 +30,19 @@ def root_sum_square(x, y):
     return np.sqrt(x**2 + y**2)
 
 
-def calc_eop_offset(t_eop1,  t_eop2):
-    """Calculate the EOP difference series between two solutions.
-
-    Parameters
-    ----------
-    t_eop1, t_eop2 : astropy.table object
-        EOP series from two solutions
-
-    Return
-    ------
-    t_eop_offset : astropy.table object
-        EOP difference series
-    """
-
-    # Copy the original tables and keep only the EOP information
-    t_eop3 = Table(t_eop1)
-    t_eop3.keep_columns(["epoch_pmr", "db_name",
-                         "xp", "yp", "ut1_tai", "dX", "dY",
-                         "xp_err", "yp_err", "dut1_err", "dX_err", "dY_err",
-                         "epoch_nut"])
-
-    t_eop4 = Table(t_eop2)
-    t_eop4.keep_columns(["db_name",
-                         "xp", "yp", "ut1_tai", "dX", "dY",
-                         "xp_err", "yp_err", "dut1_err", "dX_err", "dY_err"])
-
-    # Cross-match between two tables
-    t_eop_com = join(t_eop3, t_eop4, keys="db_name")
-
-    print("There are %d and %d points in series 1 and series 2, respectively,"
-          "between which %d are common."
-          % (len(t_eop1), len(t_eop2), len(t_eop_com)))
-
-    # Calculate the offset and the uncertainties
-    dxp = t_eop_com["xp_1"] - t_eop_com["xp_2"]
-    dyp = t_eop_com["yp_1"] - t_eop_com["yp_2"]
-    dut = t_eop_com["ut1_tai_1"] - t_eop_com["ut1_tai_2"]
-    ddX = t_eop_com["dX_1"] - t_eop_com["dX_2"]
-    ddY = t_eop_com["dY_1"] - t_eop_com["dY_2"]
-
-    dxp_err = root_sum_square(t_eop_com["xp_err_1"], t_eop_com["xp_err_2"])
-    dyp_err = root_sum_square(t_eop_com["yp_err_1"], t_eop_com["yp_err_2"])
-    dut_err = root_sum_square(t_eop_com["dut1_err_1"], t_eop_com["dut1_err_2"])
-    ddX_err = root_sum_square(t_eop_com["dX_err_1"], t_eop_com["dX_err_2"])
-    ddY_err = root_sum_square(t_eop_com["dY_err_1"], t_eop_com["dY_err_2"])
-
-    # Convert the unit
-    # Time tag
-    # from astropy.time import Time
-    # t_pmr_mjd = Time(t_eop_com["epoch_pmr"], format="mjd")
-    # t_pmr = Column(t_pmr_mjd.jyear, unit=u.year)
-    #
-    # t_nut_mjd = Time(t_eop_com["epoch_nut"], format="mjd")
-    # t_nut = Column(t_nut_mjd.jyear, unit=u.year)
-
-    # Polar motion
-    dxp.convert_unit_to(u.uas)
-    dxp_err.convert_unit_to(u.uas)
-    dyp.convert_unit_to(u.uas)
-    dyp_err.convert_unit_to(u.uas)
-
-    # UT1-UTC (s -> us)
-    dut.convert_unit_to(u.second / 1e6)
-    dut_err.convert_unit_to(u.second / 1e6)
-
-    # Nutation offset
-    ddX.convert_unit_to(u.uas)
-    ddX_err.convert_unit_to(u.uas)
-    ddY.convert_unit_to(u.uas)
-    ddY_err.convert_unit_to(u.uas)
-
-    # Add these columns to the combined table.
-    t_eop_offset = Table([t_eop_com["db_name"], t_eop_com["epoch_pmr"],
-                          t_eop_com["epoch_nut"],
-                          dxp, dyp, dut, ddX, ddY,
-                          dxp_err, dyp_err, dut_err, ddX_err, ddY_err],
-                         names=["db_name", "epoch_pmr", "epoch_nut",
-                                "dxp", "dyp", "dut", "ddX", "ddY",
-                                "dxp_err", "dyp_err", "dut1_err",
-                                "ddX_err", "ddY_err"])
-
-    return t_eop_offset
-
-
-def save_eop_offset_txt(t_eop_offset, offset_file):
+def save_eop_offset(eopoft, oftfile):
     """Save the eop offset series into a text file.
 
     Parameters
     ----------
-    t_eop_offset : Table object
+    eopoft : Table object
         eop offset series
-    offset_file : string
+    oftfile : string
         name of file to store the data
     """
 
     # Header
-    t_eop_offset.meta["comments"] = [
+    eopoft.meta["comments"] = [
         " EOP Offset series",
         " Columns  Units   Meaning",
         "    1     day     Time Tag for polar motion and UT1 (MJD)",
@@ -143,59 +59,147 @@ def save_eop_offset_txt(t_eop_offset, offset_file):
         "   12     uas     formal uncertainty for offset of Nutation dY",
         " Created date: %s." % time.strftime("%d/%m/%Y", time.localtime())]
 
-    t_eop_offset.write(offset_file, format="ascii.fixed_width_no_header",
-                       exclude_names=["db_name"],
-                       formats={"epoch_pmr": "%14.6f", "epoch_nut": "%14.6f",
-                                "dxp": "%+8.1f", "dyp": "%+8.1f",
-                                "dut": "%+8.1f",
-                                "ddX": "%+8.1f", "ddY": "%+8.1f",
-                                "dxp_err": "%+8.1f", "dyp_err": "%+8.1f",
-                                "dut1_err": "%+8.1f",
-                                "ddX_err": "%+8.1f", "ddY_err": "%+8.1f", },
-                       delimiter="", overwrite=True)
+    eopoft.write(oftfile, format="ascii.fixed_width_no_header",
+                 exclude_names=["db_name"],
+                 formats={"epoch_pmr": "%14.6f", "epoch_nut": "%14.6f",
+                          "dxp": "%+8.1f", "dyp": "%+8.1f",
+                          "dut": "%+8.1f",
+                          "ddX": "%+8.1f", "ddY": "%+8.1f",
+                          "dxp_err": "%+8.1f", "dyp_err": "%+8.1f",
+                          "dut_err": "%+8.1f",
+                          "ddX_err": "%+8.1f", "ddY_err": "%+8.1f", },
+                 delimiter="", overwrite=True)
 
 
-def read_eop_offset(eop_oft_file):
+def read_eop_offset(oftfile):
     """Read EOP offset data.
 
     Parameters
     ----------
-    eop_oft_file : string
+    oftfile : string
         EOP offset file
 
     Returns
     ----------
-    t_eop_oft : astropy.table object
+    eopoft : astropy.table object
     """
 
-    if not os.path.isfile(eop_oft_file):
-        print("Couldn't find the file", eop_oft_file)
+    if not os.path.isfile(oftfile):
+        print("Couldn't find the file", oftfile)
         sys.exit()
 
-    t_eop_oft = Table.read(eop_oft_file, format="ascii",
-                           names=["epoch_pmr", "epoch_nut",
-                                  "dxp", "dyp", "dut", "ddX", "ddY",
-                                  "dxp_err", "dyp_err", "dut_err",
-                                  "ddX_err", "ddY_err"])
+    eopoft = Table.read(oftfile, format="ascii",
+                        names=["epoch_pmr", "epoch_nut",
+                               "dxp", "dyp", "dut", "ddX", "ddY",
+                               "dxp_err", "dyp_err", "dut_err",
+                               "ddX_err", "ddY_err"])
 
     # Add unit information
-    t_eop_oft["epoch_pmr"].unit = cds.MJD
-    t_eop_oft["epoch_nut"].unit = cds.MJD
+    eopoft["epoch_pmr"].unit = cds.MJD
+    eopoft["epoch_nut"].unit = cds.MJD
 
-    t_eop_oft["dxp"].unit = u.uas
-    t_eop_oft["dyp"].unit = u.uas
-    t_eop_oft["dxp_err"].unit = u.uas
-    t_eop_oft["dyp_err"].unit = u.uas
+    eopoft["dxp"].unit = u.uas
+    eopoft["dyp"].unit = u.uas
+    eopoft["dxp_err"].unit = u.uas
+    eopoft["dyp_err"].unit = u.uas
 
-    t_eop_oft["dut"].unit = u.second / 1e6
-    t_eop_oft["dut_err"].unit = u.second / 1e6
+    eopoft["dut"].unit = u.second / 1e6
+    eopoft["dut_err"].unit = u.second / 1e6
 
-    t_eop_oft["ddX"].unit = u.uas
-    t_eop_oft["ddY"].unit = u.uas
-    t_eop_oft["ddX_err"].unit = u.uas
-    t_eop_oft["ddY_err"].unit = u.uas
+    eopoft["ddX"].unit = u.uas
+    eopoft["ddY"].unit = u.uas
+    eopoft["ddX_err"].unit = u.uas
+    eopoft["ddY_err"].unit = u.uas
 
-    return t_eop_oft
+    return eopoft
+
+
+def calc_eop_offset(eop1,  eop2, oftfile=None):
+    """Calculate the EOP difference series between two solutions.
+
+    Parameters
+    ----------
+    eop1, eop2 : astropy.table object
+        EOP series from two solutions
+
+    Return
+    ------
+    eopoft : astropy.table object
+        EOP difference series
+    """
+
+    # Copy the original tables and keep only the EOP information
+    eop3 = Table(eop1)
+    eop3.keep_columns(["db_name", "epoch_pmr", "epoch_nut",
+                       "xp", "yp", "ut1_tai", "dX", "dY",
+                       "xp_err", "yp_err", "dut1_err", "dX_err", "dY_err"])
+
+    eop4 = Table(eop2)
+    eop4.keep_columns(["db_name",
+                       "xp", "yp", "ut1_tai", "dX", "dY",
+                       "xp_err", "yp_err", "dut1_err", "dX_err", "dY_err"])
+
+    # Cross-match between two tables
+    eopcom = join(eop3, eop4, keys="db_name")
+
+    print("There are %d and %d points in series 1 and series 2, respectively,"
+          "between which %d are common."
+          % (len(eop1), len(eop2), len(eopcom)))
+
+    # Calculate the offset and the uncertainties
+    dxp = eopcom["xp_1"] - eopcom["xp_2"]
+    dyp = eopcom["yp_1"] - eopcom["yp_2"]
+    dut = eopcom["ut1_tai_1"] - eopcom["ut1_tai_2"]
+    ddX = eopcom["dX_1"] - eopcom["dX_2"]
+    ddY = eopcom["dY_1"] - eopcom["dY_2"]
+
+    dxperr = root_sum_square(eopcom["xp_err_1"], eopcom["xp_err_2"])
+    dyperr = root_sum_square(eopcom["yp_err_1"], eopcom["yp_err_2"])
+    duterr = root_sum_square(eopcom["dut1_err_1"], eopcom["dut1_err_2"])
+    ddXerr = root_sum_square(eopcom["dX_err_1"], eopcom["dX_err_2"])
+    ddYerr = root_sum_square(eopcom["dY_err_1"], eopcom["dY_err_2"])
+
+    # Convert the unit
+    # Time tag
+    # from astropy.time import Time
+    # t_pmr_mjd = Time(eopcom["epoch_pmr"], format="mjd")
+    # t_pmr = Column(t_pmr_mjd.jyear, unit=u.year)
+    #
+    # t_nut_mjd = Time(eopcom["epoch_nut"], format="mjd")
+    # t_nut = Column(t_nut_mjd.jyear, unit=u.year)
+
+    # Polar motion
+    dxp.convert_unit_to(u.uas)
+    dxperr.convert_unit_to(u.uas)
+    dyp.convert_unit_to(u.uas)
+    dyperr.convert_unit_to(u.uas)
+
+    # UT1-UTC (s -> us)
+    dut.convert_unit_to(u.second / 1e6)
+    duterr.convert_unit_to(u.second / 1e6)
+
+    # Nutation offset
+    ddX.convert_unit_to(u.uas)
+    ddXerr.convert_unit_to(u.uas)
+    ddY.convert_unit_to(u.uas)
+    ddYerr.convert_unit_to(u.uas)
+
+    # Add these columns to the combined table.
+    eopoft = Table([eopcom["db_name"], eopcom["epoch_pmr"],
+                    eopcom["epoch_nut"],
+                    dxp, dyp, dut, ddX, ddY,
+                    dxperr, dyperr, duterr, ddXerr, ddYerr],
+                   names=["db_name", "epoch_pmr", "epoch_nut",
+                          "dxp", "dyp", "dut", "ddX", "ddY",
+                          "dxp_err", "dyp_err", "dut_err",
+                          "ddX_err", "ddY_err"])
+
+    # Save the EOP offset series
+    if oftfile is not None:
+        print("Save the EOP offset series in", oftfile)
+        save_eop_offset(eopoft, oftfile)
+
+    return eopoft
 
 
 if __name__ == '__main__':
