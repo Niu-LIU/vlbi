@@ -71,7 +71,7 @@ def read_sta_gvx(gvx_file):
 
     Returns
     ----------
-    sta_gvx : astropy.table object
+    vel_gvx : astropy.table object
      |__
         station : string
             name of station
@@ -94,7 +94,7 @@ def read_sta_gvx(gvx_file):
         print("Couldn't find the input file", gvx_file)
         sys.exit()
 
-    sta_gvx = Table.read(gvx_file,
+    vel_gvx = Table.read(gvx_file,
                          format="ascii.fixed_width_no_header",
                          names=["station", "xv", "xv_err", "yv", "yv_err",
                                 "zv", "zv_err"],
@@ -102,14 +102,14 @@ def read_sta_gvx(gvx_file):
                          col_ends=[18, 32, 44, 58, 70, 84, 96])
 
     # Add information for units
-    sta_gvx["xv"].unit = u.m / 1000 / u.yr
-    sta_gvx["yv"].unit = u.m / 1000 / u.yr
-    sta_gvx["zv"].unit = u.m / 1000 / u.yr
-    sta_gvx["xv_err"].unit = u.m / 1000 / u.yr
-    sta_gvx["yv_err"].unit = u.m / 1000 / u.yr
-    sta_gvx["zv_err"].unit = u.m / 1000 / u.yr
+    vel_gvx["xv"].unit = u.m / 1000 / u.yr
+    vel_gvx["yv"].unit = u.m / 1000 / u.yr
+    vel_gvx["zv"].unit = u.m / 1000 / u.yr
+    vel_gvx["xv_err"].unit = u.m / 1000 / u.yr
+    vel_gvx["yv_err"].unit = u.m / 1000 / u.yr
+    vel_gvx["zv_err"].unit = u.m / 1000 / u.yr
 
-    return sta_gvx
+    return vel_gvx
 
 
 def read_sta_gvu(gvu_file):
@@ -122,7 +122,7 @@ def read_sta_gvu(gvu_file):
 
     Returns
     ----------
-    sta_gvu : astropy.table object
+    vel_gvu : astropy.table object
      |__
         station : string
             name of station
@@ -145,7 +145,7 @@ def read_sta_gvu(gvu_file):
         print("Couldn't find the input file", gvu_file)
         sys.exit()
 
-    sta_gvu = Table.read(gvu_file,
+    vel_gvu = Table.read(gvu_file,
                          format="ascii.fixed_width_no_header",
                          names=["station", "uv", "uv_err", "ev", "ev_err",
                                 "nv", "nv_err"],
@@ -153,14 +153,14 @@ def read_sta_gvu(gvu_file):
                          col_ends=[18, 32, 44, 58, 70, 84, 96])
 
     # Add information for units
-    sta_gvu["uv"].unit = u.m / 1000 / u.yr
-    sta_gvu["ev"].unit = u.m / 1000 / u.yr
-    sta_gvu["nv"].unit = u.m / 1000 / u.yr
-    sta_gvu["uv_err"].unit = u.m / 1000 / u.yr
-    sta_gvu["ev_err"].unit = u.m / 1000 / u.yr
-    sta_gvu["nv_err"].unit = u.m / 1000 / u.yr
+    vel_gvu["uv"].unit = u.m / 1000 / u.yr
+    vel_gvu["ev"].unit = u.m / 1000 / u.yr
+    vel_gvu["nv"].unit = u.m / 1000 / u.yr
+    vel_gvu["uv_err"].unit = u.m / 1000 / u.yr
+    vel_gvu["ev_err"].unit = u.m / 1000 / u.yr
+    vel_gvu["nv_err"].unit = u.m / 1000 / u.yr
 
-    return sta_gvu
+    return vel_gvu
 
 
 def parse_vel_file(in_file, out_file="temp.out", keyword=None):
@@ -189,27 +189,27 @@ def parse_vel_file(in_file, out_file="temp.out", keyword=None):
 
     # Assume that the operation system is an Unix- or Linux-like where
     # the commond grep is supported.
-    print("Generate a temporary file", out_file, "of type", keyword)
+    # print("Generate a temporary file", out_file, "of type", keyword)
     os.system("grep %s %s > %s" % (keyword, in_file, out_file))
-    print("Done!")
+    # print("Done!")
 
     # Read the data
-    print("Read", out_file)
+    # print("Read", out_file)
     if keyword is "STA_GVX":
         data_table = read_sta_gvx(out_file)
     else:
         data_table = read_sta_gvu(out_file)
-    print("Done!")
+    # print("Done!")
 
     # Delete the temporary file
-    print("Delete", out_file)
+    # print("Delete", out_file)
     os.system("rm %s" % out_file)
-    print("Done!")
+    # print("Done!")
 
     return data_table
 
 
-def read_vel(vel_file, get_corr=False):
+def read_vel(vel_file, get_corr=True):
     '''Retrieve the result from .lso file.
 
     Parameters
@@ -251,13 +251,13 @@ def read_vel(vel_file, get_corr=False):
 
     # Original data contains 2 types of data, which will be read repsectively
     # 1) STA_GVX (Cartesian components of the vector of station velocities)
-    sta_gvx = parse_vel_file(vel_file, keyword="STA_GVX")
+    vel_gvx = parse_vel_file(vel_file, keyword="STA_GVX")
 
     # 2) STA_GVU (Local topocentric components of station velocities)
-    sta_gvu = parse_vel_file(vel_file, keyword="STA_GVU")
+    vel_gvu = parse_vel_file(vel_file, keyword="STA_GVU")
 
     # Merge two tables into one major table
-    sta_vel = join(sta_gvx, sta_gvu, keys="station", join_type="outer")
+    sta_vel = join(vel_gvx, vel_gvu, keys="station", join_type="outer")
 
     # Do not forget the correlation between estimates.
     if get_corr:
@@ -265,7 +265,7 @@ def read_vel(vel_file, get_corr=False):
         sta_corr.keep_columns(
             ["station", "xv_yv_corr",  "xv_zv_corr", "yv_zv_corr"])
 
-        sta_vel = join(sta_gvx, sta_corr, keys="station", join_type="left")
+        sta_vel = join(vel_gvx, sta_corr, keys="station", join_type="left")
 
     return sta_vel
 

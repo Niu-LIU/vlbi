@@ -13,9 +13,7 @@ from functools import reduce
 import sys
 
 
-__all__ = ["vecmod_calc", "vecerr_calc",
-           "wgtmat_calc", "jacmat_calc",
-           "trans_fitting", "helmert_trans"]
+__all__ = ["trans_fitting", "helmert_trans"]
 
 
 # -----------------------------  FUNCTIONS -----------------------------
@@ -24,6 +22,13 @@ def rad_to_as(rad):
     """
 
     return np.rad2deg(rad) * 3600
+
+
+def rad_to_mas(rad):
+    """Radian to milli-arc-second.
+    """
+
+    return np.rad2deg(rad) * 3600 * 1000
 
 
 def vecmod_calc(x):
@@ -104,8 +109,8 @@ def jacmat_calc(x, y, z):
     parx_d = x
     # rotation angles
     parx_r1 = np.zeros_like(x)
-    parx_r2 = z
-    parx_r3 = -y
+    parx_r2 = y
+    parx_r3 = -z
 
     # For \Delta_y
     # translation components
@@ -142,11 +147,12 @@ def jacmat_calc(x, y, z):
 
     # Jacobian matrix.
     N = part1.size
-    jac_mat_t = concatenate((part1.reshape(1, N), part2.reshape(1, N),
-                             part3.reshape(1, N), pard.reshape(1, N),
-                             parr1.reshape(1, N), parr2.reshape(1, N),
-                             parr3.reshape(1, N)), axis=0)
-    jac_mat = np.transpose(jac_mat_t)
+    jac_mat = concatenate((part1.reshape(N, 1), part2.reshape(N, 1),
+                           part3.reshape(N, 1), pard.reshape(N, 1),
+                           parr1.reshape(N, 1), parr2.reshape(N, 1),
+                           parr3.reshape(N, 1)), axis=1)
+
+    jac_mat_t = np.transpose(jac_mat)
 
     return jac_mat, jac_mat_t
 
@@ -210,15 +216,15 @@ def helmert_trans(dx, dy, dz, dx_err, dy_err, dz_err,
                         np.array([rx_err,  ry_err,  rz_err]))
 
     # convert the unit of scale factor into ppb
-    d = d * 10**9
-    d_err = d_err * 10**9
+    d = d * 1e9
+    d_err = d_err * 1e9
 
     # Convert the unit of rotation into arc-second.
-    rx, ry, rz = rad_to_as(rx), rad_to_as(ry), rad_to_as(rz)
-    r, r_err = rad_to_as(r), rad_to_as(r_err)
-    rx_err = rad_to_as(rx_err)
-    ry_err = rad_to_as(ry_err)
-    rz_err = rad_to_as(rz_err)
+    rx, ry, rz = rad_to_mas(rx), rad_to_mas(ry), rad_to_mas(rz)
+    r, r_err = rad_to_mas(r), rad_to_mas(r_err)
+    rx_err = rad_to_mas(rx_err)
+    ry_err = rad_to_mas(ry_err)
+    rz_err = rad_to_mas(rz_err)
 
     # For log file.
     if data_type == "p":
@@ -227,7 +233,7 @@ def helmert_trans(dx, dy, dz, dx_err, dy_err, dz_err,
               "=> %8.3f +/- %8.3f" % (t, t_err), file=fout)
         print("#### Scale factor (ppb）:\n",
               " %7.3f +/- %7.3f" % (d, d_err), file=fout)
-        print("#### Rotation component（arc-second）:\n",
+        print("#### Rotation component（mas）:\n",
               "  %+8.3f +/- %8.3f |" *
               3 % (rx, rx_err, ry, ry_err, rz, rz_err),
               "=> %+8.3f +/- %8.3f" % (r, r_err), file=fout)
@@ -238,7 +244,7 @@ def helmert_trans(dx, dy, dz, dx_err, dy_err, dz_err,
               "=> %8.3f +/- %8.3f" % (t, t_err), file=fout)
         print("#### Scale factor (ppb/yr）:\n",
               " %7.3f +/- %7.3f" % (d, d_err), file=fout)
-        print("#### Rotation component（arc-second/yr）:\n",
+        print("#### Rotation component（mas/yr）:\n",
               "  %+8.3f +/- %8.3f |" *
               3 % (rx, rx_err, ry, ry_err, rz, rz_err),
               "=> %+8.3f +/- %8.3f" % (r, r_err), file=fout)

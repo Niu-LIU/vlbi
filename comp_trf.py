@@ -57,9 +57,9 @@ def calc_sta_offset(t_sta1,  t_sta2):
           % (len(t_sta1), len(t_sta2), len(t_sta_com)))
 
     # Calculate the offset and the uncertainties
-    dxp = t_sta_com["xp_2"] - t_sta_com["xp_1"]
-    dyp = t_sta_com["yp_2"] - t_sta_com["yp_1"]
-    dzp = t_sta_com["zp_2"] - t_sta_com["zp_1"]
+    dxp = t_sta_com["xp_1"] - t_sta_com["xp_2"]
+    dyp = t_sta_com["yp_1"] - t_sta_com["yp_2"]
+    dzp = t_sta_com["zp_1"] - t_sta_com["zp_2"]
     dxp_err = root_sum_square(t_sta_com["xp_err_1"], t_sta_com["xp_err_2"])
     dyp_err = root_sum_square(t_sta_com["yp_err_1"], t_sta_com["yp_err_2"])
     dzp_err = root_sum_square(t_sta_com["zp_err_1"], t_sta_com["zp_err_2"])
@@ -121,9 +121,9 @@ def calc_vel_offset(t_vel1,  t_vel2):
           % (len(t_vel1), len(t_vel2), len(t_vel_com)))
 
     # Calculate the offset and the uncertainties
-    dxv = t_vel_com["xv_2"] - t_vel_com["xv_1"]
-    dyv = t_vel_com["yv_2"] - t_vel_com["yv_1"]
-    dzv = t_vel_com["zv_2"] - t_vel_com["zv_1"]
+    dxv = t_vel_com["xv_1"] - t_vel_com["xv_2"]
+    dyv = t_vel_com["yv_1"] - t_vel_com["yv_2"]
+    dzv = t_vel_com["zv_1"] - t_vel_com["zv_2"]
     dxv_err = root_sum_square(t_vel_com["xv_err_1"], t_vel_com["xv_err_2"])
     dyv_err = root_sum_square(t_vel_com["yv_err_1"], t_vel_com["yv_err_2"])
     dzv_err = root_sum_square(t_vel_com["zv_err_1"], t_vel_com["zv_err_2"])
@@ -241,7 +241,7 @@ def calc_trf_offset(t_trf1,  t_trf2):
                              "dxp_dyp_cov", "dxp_dzp_cov", "dyp_dzp_cov",
                              "xv", "yv", "zv", "dxv", "dxv_err",
                              "dyv", "dyv_err", "dzv", "dzv_err",
-                             "dxv_yv_corr", "dxv_zv_corr", "dyv_zv_corr"])
+                             "dxv_dyv_cov", "dxv_dzv_cov", "dyv_dzv_cov"])
 
     return t_trf_oft
 

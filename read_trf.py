@@ -21,12 +21,12 @@ __all__ = ["read_trf"]
 
 
 # -----------------------------  FUNCTIONS -----------------------------
-def read_crf(sln_label):
+def read_trf(slnlabel):
     """Read the estimate of the station position and velocity
 
     Parameters
     ----------
-    sln_lable : string
+    slnlabel : string
         solution label
 
     Returns
@@ -35,23 +35,23 @@ def read_crf(sln_label):
     """
 
     # Full path of the .sta and .vel file
-    sta_file = "%s.sta" % sln_label
-    vel_file = "%s.vel" % sln_lable
+    stafile = "%s.sta" % slnlabel
+    velfile = "%s.vel" % slnlabel
 
     # position information
-    t_sta = read_sta(sta_file)
+    sta = read_sta(stafile)
 
     # velocity information
-    t_vel = read_vel(vel_file)
+    vel = read_vel(velfile, get_corr=False)
 
     # Merge the two tables into one
-    t_crf = join(t_sta, t_vel, keys="station", join_type="outer")
+    trf = join(sta, vel, keys="station", join_type="outer")
 
-    return crf
+    return trf
 
 
 # -------------------------------- MAIN --------------------------------
 if __name__ == "__main__":
     if len(sys.argv) == 2:
-        read_crf(sys.argv[1])
+        read_trf(sys.argv[1])
 # --------------------------------- END --------------------------------

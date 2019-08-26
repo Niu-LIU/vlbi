@@ -345,24 +345,24 @@ def parse_sta_file(in_file, out_file="temp.out", keyword=None):
 
     # Assume that the operation system is an Unix- or Linux-like where
     # the commond grep is supported.
-    print("Generate a temporary file", out_file, "of type", keyword)
+    # print("Generate a temporary file", out_file, "of type", keyword)
     os.system("grep %s %s > %s" % (keyword, in_file, out_file))
-    print("Done!")
+    # print("Done!")
 
     # Read the data
-    print("Read", out_file)
+    # print("Read", out_file)
     if keyword is "STA_GCX":
         data_table = read_sta_gcx(out_file)
     elif keyword is "STA_GCU":
         data_table = read_sta_gcu(out_file)
     else:
         data_table = read_sta_crl(out_file)
-    print("Done!")
+    # print("Done!")
 
     # Delete the temporary file
-    print("Delete", out_file)
+    # print("Delete", out_file)
     os.system("rm %s" % out_file)
-    print("Done!")
+    # print("Done!")
 
     return data_table
 
