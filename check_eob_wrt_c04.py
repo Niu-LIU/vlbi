@@ -47,13 +47,13 @@ def read_c04(c04_file=None):
 
     if c04_file is None:
         datadir = get_data_dir()
-        c04_file = "{}/eopc04_IAU2000.62-now.txt".format(datadir)
+        c04_file = "{}/eopc04_IAU2000.62-now".format(datadir)
 
     if not os.path.isfile(c04_file):
         print("Couldn't find the file", c04_file)
         sys.exit()
 
-    t_c04 = Table.read(c04_file, format="ascii",
+    t_c04 = Table.read(c04_file, format="ascii", data_start=7,
                        names=["year", "month", "date", "epoch",
                               "xp", "yp", "ut1_utc", "lod", "dX", "dY",
                               "xp_err", "yp_err", "dut1_err",
@@ -119,11 +119,11 @@ def read_c04_array(c04_file=None):
 
     if c04_file is None:
         datadir = get_data_dir()
-        c04_file = "{}/eopc04_IAU2000.62-now.txt".format(datadir)
+        c04_file = "{}/eopc04_IAU2000.62-now".format(datadir)
 
-    epoch_mjd, xp, yp, ut = np.genfromtxt(c04_file,
+    epoch_mjd, xp, yp, ut = np.genfromtxt(c04_file, skip_header=14,
                                           usecols=np.arange(3, 7), unpack=True)
-    dX, dY = np.genfromtxt(c04_file, usecols=(8, 9), unpack=True)
+    dX, dY = np.genfromtxt(c04_file, skip_header=14, usecols=(8, 9), unpack=True)
     # skip_header=14,
 
     return epoch_mjd, xp, yp, ut, dX, dY
@@ -188,6 +188,7 @@ def interpolate_pmr(epoch_pmr, epoch_c04, xp_c04, yp_c04, ut_c04):
     for i, ind in enumerate(insert_ind):
 
         if ind == 0 or ind >= epoch_c04.size:
+            print(ind, epoch_c04.size)
             # normally it won't happen!!
             print("The epoch %f was too early or too late"
                   " for the C04 series." % epoch_pmr[i])
@@ -195,7 +196,7 @@ def interpolate_pmr(epoch_pmr, epoch_c04, xp_c04, yp_c04, ut_c04):
 
         elif ind < 9 or epoch_c04.size - ind < 10:
             # In this case we will use less datapoints.
-            pnum = np.min(ind, epoch_c04.size - ind)
+            pnum = min(ind, epoch_c04.size - ind)
 
         else:
             pnum = 10
@@ -259,7 +260,7 @@ def interpolate_nut(epoch_nut, epoch_c04, dX_c04, dY_c04):
 
         elif ind < 9 or epoch_c04.size - ind < 10:
             # In this case we will use less datapoints.
-            pnum = np.min(ind, epoch_c04.size - ind)
+            pnum = min(ind, epoch_c04.size - ind)
 
         else:
             pnum = 10
