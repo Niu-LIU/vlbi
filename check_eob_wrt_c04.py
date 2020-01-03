@@ -249,7 +249,7 @@ def interpolate_pmr(epoch_pmr, epoch_c04, xp_c04, yp_c04, ut_c04):
 
 
 def interpolate_nut(epoch_nut, epoch_c04, dX_c04, dY_c04):
-    """Get interpolated Nutation offset at                                           usecolsa certain epoch.
+    """Get interpolated Nutation offset at a certain epoch.
 
 
     Parameters
