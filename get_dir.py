@@ -32,14 +32,9 @@ def get_home_dir():
     elif _platform == "darwin":
         # MAC OS X
         homedir = os.getenv("HOME")
-    elif _platform == "win32":
+    elif _platform == "win32" or _platform == "win64":
         # Windows
-        print("Not implemented yet")
-        exit()
-    elif _platform == "win64":
-        # Windows 64-bit
-        print("Not implemented yet")
-        exit()
+        homedir = "C:/Users/Neo"
     else:
         print("Weird! What kind of OS do you use?")
         exit()
@@ -58,7 +53,6 @@ def get_data_dir():
     """
 
     homedir = get_home_dir()
-
     datadir = "{}/.ipython/my_progs/vlbi/aux_files".format(homedir)
 
     return datadir
