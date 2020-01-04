@@ -27,7 +27,7 @@ __all__ = ["read_sou", "read_crf", "read_cat"]
 
 
 # -----------------------------  FUNCTIONS -----------------------------
-def read_sou(sou_file):
+def read_sou(sou_file, remove_no_estimate=True):
     """Read radio source positions
 
     Parameters
@@ -57,14 +57,17 @@ def read_sou(sou_file):
             number of observations used in the solution
         -- total_obs
             number of total observations of this source
-        -- used_sess
+        -- used_ses
             number of sessions used in the solution
-        -- total_sess
+        -- total_ses
             number of total sessions of this source
         -- beg_epoch
             epoch of first observation (MJD)
         -- end_epoch
             epoch of last observation (MJD)
+        -- remove_no_estimate: boolean
+            If ture, remove sources with no estimate (number of used observation = 0)
+
     """
 
     if not os.path.isfile(sou_file):
@@ -73,8 +76,8 @@ def read_sou(sou_file):
     t_sou = Table.read(sou_file, format="ascii.fixed_width_no_header",
                        names=("ivs_name", "ra", "ra_err",
                               "dec", "dec_err", "ra_dec_corr",
-                              "used_obs", "total_obs", "used_sess",
-                              "total_sess", "beg_epoch", "end_epoch"),
+                              "used_obs", "total_obs", "used_ses",
+                              "total_ses", "beg_epoch", "end_epoch"),
                        col_starts=(10, 24, 45, 61, 82, 98, 117,
                                    132, 150, 164, 181, 202),
                        col_ends=(17, 41, 55, 78, 92, 104, 122,
@@ -85,11 +88,12 @@ def read_sou(sou_file):
                               col_starts=[20, 57, 117],
                               col_ends=[41, 78, 122])
 
-    # Remove source with 0 observation used in th solution
-    mask = (t_sou["used_obs"] != 0)
-    t_sou = Table(t_sou[mask], masked=False)
-    mask = (ra_dec_table["used_obs"] != 0)
-    ra_dec_table = Table(ra_dec_table[mask], masked=False)
+    if remove_no_estimate:
+        # Remove source with 0 observation used in th solution
+        mask = (t_sou["used_obs"] != 0)
+        t_sou = Table(t_sou[mask], masked=False)
+        mask = (ra_dec_table["used_obs"] != 0)
+        ra_dec_table = Table(ra_dec_table[mask], masked=False)
 
     # convert string into float for RA, Decl. and observing epoch
     Nsize = len(t_sou)
@@ -103,8 +107,12 @@ def read_sou(sou_file):
         dec[i] = DC_conv(ra_dec_tablei["dec"])
 
     for i, t_soui in enumerate(t_sou):
-        date_beg[i] = date2mjd(t_soui["beg_epoch"])
-        date_end[i] = date2mjd(t_soui["end_epoch"])
+        if t_soui["used_obs"]:
+            date_beg[i] = date2mjd(t_soui["beg_epoch"])
+            date_end[i] = date2mjd(t_soui["end_epoch"])
+        else:
+            date_beg[i] = 0
+            date_end[i] = 0
 
     # replace original columns with new columns
     t_sou["ra"] = ra
@@ -175,9 +183,9 @@ def read_crf(crffile):
             number of observations used in the solution
         -- total_obs
             number of total observations of this source
-        -- used_sess
+        -- used_ses
             number of sessions used in the solution
-        -- total_sess
+        -- total_ses
             number of total sessions of this source
         -- beg_epoch
             epoch of first observation (MJD)
@@ -192,7 +200,7 @@ def read_crf(crffile):
     #                       names=["ivs_name", "iers_name",
     #                              "ra_err", "dec_err", "ra_dec_corr",
     #                              "mean_epoch", "beg_epoch", "end_epoch",
-    #                              "used_sess", "used_obs", "num_delrate", "flag"],
+    #                              "used_ses", "used_obs", "num_delrate", "flag"],
     #                       col_starts=[0, 21, 64, 79, 90, 97,
     #                                   105, 113, 121, 127, 134, 141],
     #                       col_ends=[8, 59, 74, 88, 96, 104, 112, 120, 126, 133, 140, 144])
@@ -203,7 +211,7 @@ def read_crf(crffile):
                                  "dec_d", "dec_m", "dec_s",
                                  "ra_err", "dec_err", "ra_dec_corr",
                                  "mean_epoch", "beg_epoch", "end_epoch",
-                                 "used_sess", "used_obs", "num_delrate", "flag"],
+                                 "used_ses", "used_obs", "num_delrate", "flag"],
                           exclude_names=["ra_h", "ra_m", "ra_s",
                                          "dec_d", "dec_m", "dec_s",
                                          "num_delrate"])
@@ -281,9 +289,9 @@ def read_cat(cat_file):
             number of observations used in the solution
         -- total_obs
             number of total observations of this source
-        -- used_sess
+        -- used_ses
             number of sessions used in the solution
-        -- total_sess
+        -- total_ses
             number of total sessions of this source
         -- beg_epoch
             epoch of first observation (MJD)
@@ -298,17 +306,17 @@ def read_cat(cat_file):
         cat_file, dtype=str, usecols=(0, 1), unpack=True)
     ra, ra_err, dec, dec_err, ra_dec_corr = np.genfromtxt(
         cat_file, usecols=range(2, 7), unpack=True)
-    used_sess, used_obs = np.genfromtxt(
+    used_ses, used_obs = np.genfromtxt(
         cat_file, dtype=int, usecols=(7, 8), unpack=True)
     mean_epoch, beg_epoch, end_epoch = np.genfromtxt(
         cat_file, usecols=(9, 10, 11), unpack=True)
 
     t_cat = Table([ivs_name, iers_name,
                    ra, dec, ra_err, dec_err, ra_dec_corr,
-                   used_sess, used_obs, mean_epoch, beg_epoch, end_epoch],
+                   used_ses, used_obs, mean_epoch, beg_epoch, end_epoch],
                   names=["ivs_name", "iers_name",
                          "ra", "dec", "ra_err", "dec_err", "ra_dec_corr",
-                         "used_sess", "used_obs",
+                         "used_ses", "used_obs",
                          "mean_epoch", "beg_epoch", "end_epoch"])
 
     mask = (t_cat["used_obs"] != 0)

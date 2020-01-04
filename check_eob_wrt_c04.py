@@ -56,7 +56,7 @@ def read_c04(c04_file=None):
     t_c04 = Table.read(c04_file, format="ascii", data_start=7,
                        names=["year", "month", "date", "epoch",
                               "xp", "yp", "ut1_utc", "lod", "dX", "dY",
-                              "xp_err", "yp_err", "dut1_err",
+                              "xp_err", "yp_err", "ut1_err",
                               "lod_err", "dX_err", "dY_err"])
 
     # Add the unit information
@@ -71,7 +71,7 @@ def read_c04(c04_file=None):
 
     # 3) UT1-UTC and LOD
     t_c04["ut1_utc"].unit = u.second
-    t_c04["dut1_err"].unit = u.second
+    t_c04["ut1_err"].unit = u.second
     t_c04["lod"].unit = u.second
     t_c04["lod_err"].unit = u.second
 
@@ -83,7 +83,7 @@ def read_c04(c04_file=None):
 
     # Remove the data points which are not estimated in the solution
     mask = ((t_c04["xp_err"] != 0) & (t_c04["yp_err"] != 0)
-            & (t_c04["dut1_err"] != 0) & (t_c04["lod_err"] != 0)
+            & (t_c04["ut1_err"] != 0) & (t_c04["lod_err"] != 0)
             & (t_c04["dX_err"] != 0) & (t_c04["dY_err"] != 0))
 
     t_c04 = Table(t_c04[mask], masked=False)
@@ -109,8 +109,8 @@ def read_c04_array(c04_file=None):
         yp position of CIP in ITRS, as
     ut : array, float
         UT1 - UTC, second
-    # LOD : array, float
-    #     length of day, second
+    LOD : array, float
+        length of day, second
     dX : array, float
         xp component of CPO, as
     dY : array, float
@@ -121,12 +121,11 @@ def read_c04_array(c04_file=None):
         datadir = get_data_dir()
         c04_file = "{}/eopc04_IAU2000.62-now".format(datadir)
 
-    epoch_mjd, xp, yp, ut = np.genfromtxt(c04_file, skip_header=14,
-                                          usecols=np.arange(3, 7), unpack=True)
-    dX, dY = np.genfromtxt(c04_file, skip_header=14, usecols=(8, 9), unpack=True)
-    # skip_header=14,
+    epoch_mjd, xp, yp, ut, lod, dX, dY = np.genfromtxt(c04_file, skip_header=14,
+                                                       usecols=np.arange(3, 10),
+                                                       unpack=True)
 
-    return epoch_mjd, xp, yp, ut, dX, dY
+    return epoch_mjd, xp, yp, ut, lod, dX, dY
 
 
 def cubic_spline(x, xs, ys):
@@ -152,7 +151,7 @@ def cubic_spline(x, xs, ys):
     return cs(x)
 
 
-def interpolate_pmr(epoch_pmr, epoch_c04, xp_c04, yp_c04, ut_c04):
+def interpolate_pmr(epoch_pmr, epoch_c04, xp_c04, yp_c04, ut_c04, lod_c04):
     """Get interpolated EOP at a certain epoch.
 
 
@@ -161,13 +160,15 @@ def interpolate_pmr(epoch_pmr, epoch_c04, xp_c04, yp_c04, ut_c04):
     epoch_pmr : float
         epoch to be interpolated
     poch_c04 : array, float
-        20-point epoch series
-    xp_sub : array, float
-        20-point xp series
-    yp_sub : array, float
-        20-point yp series
-    ut_sub : array, float
-        20-point UT1-UTC series
+        20-point of epoch series in MJD
+    xp_c04 : array, float
+        20-point of xp series
+    yp_c04 : array, float
+        20-point of yp series
+    ut_c04 : array, float
+        20-point of UT1-UTC series
+    lod_c04 : array, float
+        20-point of LOD series
 
     Returns
     ----------
@@ -175,13 +176,16 @@ def interpolate_pmr(epoch_pmr, epoch_c04, xp_c04, yp_c04, ut_c04):
         interpolated xp value
     yp_apr : float
         interpolated yp value
-    dut_apr : float
+    ut_apr : float
         interpolated UT1-UTC value
+    lod_apr : float
+        interpolated LOD value
     """
 
     xp_apr = np.zeros_like(epoch_pmr)
     yp_apr = np.zeros_like(epoch_pmr)
     ut_apr = np.zeros_like(epoch_pmr)
+    lod_apr = np.zeros_like(epoch_pmr)
 
     insert_ind = np.searchsorted(epoch_c04, epoch_pmr)
 
@@ -207,19 +211,20 @@ def interpolate_pmr(epoch_pmr, epoch_c04, xp_c04, yp_c04, ut_c04):
         xp_sub = xp_c04[ind - pnum + 1: ind + pnum + 1]
         yp_sub = yp_c04[ind - pnum + 1: ind + pnum + 1]
         ut_sub = ut_c04[ind - pnum + 1: ind + pnum + 1]
+        lod_sub = lod_c04[ind - pnum + 1: ind + pnum + 1]
 
         # Cubic interpolation
         xp_apr[i] = cubic_spline(epoch_pmr[i], epoch_c04_sub, xp_sub)
         yp_apr[i] = cubic_spline(epoch_pmr[i], epoch_c04_sub, yp_sub)
         ut_apr[i] = cubic_spline(epoch_pmr[i], epoch_c04_sub, ut_sub)
+        lod_apr[i] = cubic_spline(epoch_pmr[i], epoch_c04_sub, lod_sub)
 
         # In C04, ut_apr is UT1-UTC while it is UT1-TAI in .eob file,
         # so we need to calculate IAI - UTC and then convert ut_apr to UT1-UTC
         delta_tai_utc = delta_tai_utc_calc(epoch_pmr[i])
-
         ut_apr[i] -= delta_tai_utc
 
-    return xp_apr, yp_apr, ut_apr
+    return xp_apr, yp_apr, ut_apr, lod_apr
 
 
 def interpolate_nut(epoch_nut, epoch_c04, dX_c04, dY_c04):
@@ -301,12 +306,13 @@ def calc_c04_apr(t_eob, ofile=None):
     epoch_nut = np.array(t_eob["epoch_nut"])
 
     # Read C04 data
-    [epoch_c04, xp_c04, yp_c04, ut_c04, dX_c04, dY_c04] = read_c04_array()
+    [epoch_c04, xp_c04, yp_c04, ut_c04, lod_c04, dX_c04, dY_c04] = read_c04_array()
 
     # Interpolation
     # For polar motion and UT1
-    xp_apr, yp_apr, dut_apr = interpolate_pmr(
-        epoch_pmr, epoch_c04, xp_c04, yp_c04, ut_c04)
+    lod_c04 = lod_c04 * 1000  # second -> msec
+    xp_apr, yp_apr, dut_apr, lod_apr = interpolate_pmr(
+        epoch_pmr, epoch_c04, xp_c04, yp_c04, ut_c04, lod_c04)
 
     # For nutation offset
     # Convert unit from arc-sec to mas to be consistent with .eob file
@@ -316,10 +322,9 @@ def calc_c04_apr(t_eob, ofile=None):
     # Creat a table to store the a priori information
     t_c04_apr = Table(
         [t_eob["db_name"], t_eob["epoch_pmr"],
-         xp_apr, yp_apr, dut_apr, dX_apr, dY_apr],
-        names=["db_name", "epoch",
-               "xp_c04_apr", "yp_c04_apr", "ut1_tai_c04_apr",
-               "dX_c04_apr", "dY_c04_apr"])
+         xp_apr, yp_apr, dut_apr, lod_apr, dX_apr, dY_apr],
+        names=["db_name", "epoch", "xp_c04_apr", "yp_c04_apr",
+               "ut1_tai_c04_apr", "lod_c04_apr", "dX_c04_apr", "dY_c04_apr"])
 
     # Add the unit information
     # 1) polar motion (wobble) and rate
@@ -328,6 +333,7 @@ def calc_c04_apr(t_eob, ofile=None):
 
     # 2) UT1-TAI/UT1-UTC
     t_c04_apr["ut1_tai_c04_apr"].unit = u.second
+    t_c04_apr["lod_c04_apr"].unit = u.second / 1000
 
     # 3) Nutation offset
     t_c04_apr["dX_c04_apr"].unit = u.mas
@@ -346,18 +352,19 @@ def calc_c04_apr(t_eob, ofile=None):
         "    1     day     Time Tag (MJD)",
         "    3      as     X pole coordinate",
         "    4      as     Y pole coordinate",
-        "    5     sec      UT1 - TAI",
-        "    6     mas     dX of Nutation offsets",
-        "    7     mas     dY of Nutation offsets",
+        "    5     sec     UT1 - TAI",
+        "    6     msec    LOD",
+        "    7     mas     dX of Nutation offsets",
+        "    8     mas     dY of Nutation offsets",
         " Created date: %s." % time.strftime("%d/%m/%Y", time.localtime())]
 
     t_c04_apr.write(ofile, format="ascii.fixed_width_no_header",
                     include_names=["epoch", "xp_c04_apr", "yp_c04_apr",
-                                   "ut1_tai_c04_apr",
+                                   "ut1_tai_c04_apr", "lod_c04_apr",
                                    "dX_c04_apr", "dY_c04_apr"],
-                    formats={"epoch": "%13.6f", "xp_c04_apr": "%+14.6f",
-                             "yp_c04_apr": "%+14.6f",
-                             "ut1_tai_c04_apr": "%+14.6f",
+                    formats={"epoch": "%13.6f",
+                             "xp_c04_apr": "%+14.6f", "yp_c04_apr": "%+14.6f",
+                             "ut1_tai_c04_apr": "%+14.6f", "lod_c04_apr": "%14.6f",
                              "dX_c04_apr": "%+8.3f", "dY_c04_apr": "%+8.3f"},
                     delimiter="", overwrite=True)
 
@@ -385,7 +392,7 @@ def read_c04_apr(c04_apr_file=None):
         sys.exit()
 
     t_c04 = Table.read(c04_apr_file, format="ascii",
-                       names=["epoch", "xp", "yp", "ut1_utc", "dX", "dY"])
+                       names=["epoch", "xp", "yp", "ut1_utc", "lod", "dX", "dY"])
 
     # Add the unit information
     # 1) Time tag
@@ -397,6 +404,7 @@ def read_c04_apr(c04_apr_file=None):
 
     # 3) UT1-UTC and LOD
     t_c04["ut1_utc"].unit = u.second
+    t_c04["lod"].unit = u.second
 
     # 4) polar motion (wobble) and rate
     t_c04["dX"].unit = u.arcsec
@@ -432,6 +440,7 @@ def calc_c04_offset(t_eob, aprfile=None, oftfile=None):
     dxp = t_eob_oft["xp"] - t_eob_oft["xp_c04_apr"]
     dyp = t_eob_oft["yp"] - t_eob_oft["yp_c04_apr"]
     dut = t_eob_oft["ut1_tai"] - t_eob_oft["ut1_tai_c04_apr"]
+    dlod = t_eob_oft["lod"] - t_eob_oft["lod_c04_apr"]
     ddX = t_eob_oft["dX"] - t_eob_oft["dX_c04_apr"]
     ddY = t_eob_oft["dY"] - t_eob_oft["dY_c04_apr"]
 
@@ -445,7 +454,9 @@ def calc_c04_offset(t_eob, aprfile=None, oftfile=None):
     # UT1-UTC (s -> us)
     dut.convert_unit_to(u.second / 1e6)
     t_eob_oft["ut1_tai"].convert_unit_to(u.second / 1e6)
-    t_eob_oft["dut1_err"].convert_unit_to(u.second / 1e6)
+    t_eob_oft["ut1_err"].convert_unit_to(u.second / 1e6)
+    dlod.convert_unit_to(u.second / 1e6)
+    t_eob_oft["lod_err"].convert_unit_to(u.second / 1e6)
 
     # Nutation offset
     ddX.convert_unit_to(u.uas)
@@ -453,9 +464,9 @@ def calc_c04_offset(t_eob, aprfile=None, oftfile=None):
     t_eob_oft["dX_err"].convert_unit_to(u.uas)
     t_eob_oft["dY_err"].convert_unit_to(u.uas)
 
-    t_eob_oft.add_columns([dxp, dyp, dut, ddX, ddY],
+    t_eob_oft.add_columns([dxp, dyp, dut, dlod, ddX, ddY],
                           names=["dxp_c04", "dyp_c04", "dut_c04",
-                                 "ddX_c04", "ddY_c04"])
+                                 "dlod_c04", "ddX_c04", "ddY_c04"])
 
     # Output
     if oftfile is not None:
@@ -470,16 +481,18 @@ def calc_c04_offset(t_eob, aprfile=None, oftfile=None):
         "    1     day     Time Tag (MJD)",
         "    3     uas     offset of X pole coordinate",
         "    4     uas     offset of Y pole coordinate",
-        "    5     us      offset of UT1",
+        "    5     usec    offset of UT1",
+        "    6     usec    offset of LOD",
         "    6     uas     offset of dX of Nutation offsets",
         "    7     uas     offset of dY of Nutation offsets",
         " Created date: %s." % time.strftime("%d/%m/%Y", time.localtime())]
 
     t_eob_oft.write(oftfile, format="ascii.fixed_width_no_header",
                     include_names=["epoch_pmr", "dxp_c04", "dyp_c04",
-                                   "dut_c04", "ddX_c04", "ddY_c04"],
-                    formats={"epoch_pmr": "%13.6f", "dxp_c04": "%+8.1f",
-                             "dyp_c04": "%+8.1f", "dut_c04": "%+8.1f",
+                                   "dut_c04", "dlod_c04", "ddX_c04", "ddY_c04"],
+                    formats={"epoch_pmr": "%13.6f",
+                             "dxp_c04": "%+8.1f", "dyp_c04": "%+8.1f",
+                             "dut_c04": "%+8.1f", "dlod_c04": "%+8.1f",
                              "ddX_c04": "%+8.1f", "ddY_c04": "%+8.1f"},
                     delimiter="", overwrite=True)
 
