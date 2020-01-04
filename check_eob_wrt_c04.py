@@ -18,6 +18,7 @@ from astropy import units as u
 from astropy.units import cds
 import numpy as np
 import os
+import requests
 from scipy.interpolate import CubicSpline
 import sys
 from sys import platform as _platform
@@ -32,6 +33,21 @@ __all__ = {"read_c04", "calc_c04_apr", "calc_c04_offset"}
 
 
 # -----------------------------  FUNCTIONS -----------------------------
+def download_c04():
+    """Download the C04 file
+    """
+
+    c04_url = "http://hpiers.obspm.fr/iers/eop/eopc04/eopc04_IAU2000.62-now"
+
+    r = requests.get(c04_url, stream=True)
+
+    with open("../aux_files/eopc04_IAU2000.62-now", "w") as f:
+        for chunk in r.iter_content(chunk_size=1024):
+            if chunk:
+                f.write(chunk)
+
+    print("Download C04 file successfully.")
+
 def read_c04(c04_file=None):
     """Read EOP from C04 series.
 
@@ -154,7 +170,6 @@ def cubic_spline(x, xs, ys):
 def interpolate_pmr(epoch_pmr, epoch_c04, xp_c04, yp_c04, ut_c04, lod_c04):
     """Get interpolated EOP at a certain epoch.
 
-
     Parameters
     ----------
     epoch_pmr : float
@@ -189,16 +204,27 @@ def interpolate_pmr(epoch_pmr, epoch_c04, xp_c04, yp_c04, ut_c04, lod_c04):
 
     insert_ind = np.searchsorted(epoch_c04, epoch_pmr)
 
-    for i, ind in enumerate(insert_ind):
+    # sort the index
+    insert_ind_sort = np.sort(insert_ind)
+    if insert_ind_sort[0] == 0:
+        # normally it won't happen!!
+        print("The epoch %f is too early for the C04 series." % epoch_pmr[i])
+        sys.exit()
+    elif insert_ind_sort[-1] >= epoch_c04.size:
+        print("The epoch %f is too late for the C04 series "
+              "so that we need to renew the C04 file." % epoch_pmr[i])
+        download_c04()
 
-        if ind == 0 or ind >= epoch_c04.size:
-            print(ind, epoch_c04.size)
-            # normally it won't happen!!
-            print("The epoch %f was too early or too late"
-                  " for the C04 series." % epoch_pmr[i])
+        insert_ind = np.searchsorted(epoch_c04, epoch_pmr)
+        insert_ind_sort = np.sort(insert_ind)
+
+        if insert_ind_sort[-1] >= epoch_c04.size:
+            # This means the epoch to be interpolated is beyond the range of C04 series
+            print("The epoch to be interpolated is beyond the range of C04 series")
             sys.exit()
 
-        elif ind < 9 or epoch_c04.size - ind < 10:
+    for i, ind in enumerate(insert_ind):
+        if ind < 9 or epoch_c04.size - ind < 10:
             # In this case we will use less datapoints.
             pnum = min(ind, epoch_c04.size - ind)
 
@@ -228,7 +254,7 @@ def interpolate_pmr(epoch_pmr, epoch_c04, xp_c04, yp_c04, ut_c04, lod_c04):
 
 
 def interpolate_nut(epoch_nut, epoch_c04, dX_c04, dY_c04):
-    """Get interpolated Nutation offset at                                           usecolsa certain epoch.
+    """Get interpolated Nutation offset at a certain epoch.
 
 
     Parameters
