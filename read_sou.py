@@ -7,7 +7,6 @@ Created on Sat Sep 15 14:38:46 2018
 @author: Neo(liuniu@smail.nju.edu.cn)
 """
 
-import numpy as np
 from astropy.table import Table, join, unique, Column
 import astropy.units as u
 from astropy.units import cds
@@ -27,13 +26,38 @@ __all__ = ["read_sou", "read_crf", "read_cat"]
 
 
 # -----------------------------  FUNCTIONS -----------------------------
-def read_sou(sou_file, remove_no_estimate=True):
+def inflate_sou_err(err, scale=1.5, noise=0.03):
+    """Inflate the VLBI formal error
+
+    Parameters
+    ----------
+    err : ndarray
+        VLBI formal error from global solution, unit is mas
+
+    Return
+    ------
+    err1 : ndarray
+        inflated formal error
+    """
+
+    err1 = np.sqrt((err * scale)**2 + noise**2)
+
+    return err1
+
+
+def read_sou(sou_file, drop_few_obs=False, nobs_lim=3, flate_err=False):
     """Read radio source positions
 
     Parameters
     ----------
     sou_file : string
         the full path of .sou file
+    drop_few_obs : boolean
+        flag to determine whether to remove sources with few observations
+    nobs_lim : int
+        least number of observation, meaningful only if drop_few_obs is True.
+    flate_err : boolean
+        flag to determine whether to inflate the formal error
 
     Return
     ------
@@ -65,8 +89,7 @@ def read_sou(sou_file, remove_no_estimate=True):
             epoch of first observation (MJD)
         -- end_epoch
             epoch of last observation (MJD)
-        -- remove_no_estimate: boolean
-            If ture, remove sources with no estimate (number of used observation = 0)
+
 
     """
 
@@ -80,7 +103,7 @@ def read_sou(sou_file, remove_no_estimate=True):
                               "total_ses", "beg_epoch", "end_epoch"),
                        col_starts=(10, 24, 45, 61, 82, 98, 117,
                                    132, 150, 164, 181, 202),
-                       col_ends=(17, 41, 55, 78, 92, 104, 122,
+                       col_ends=(18, 41, 55, 78, 92, 104, 122,
                                  139, 155, 170, 191, 212))
 
     ra_dec_table = Table.read(sou_file, format="ascii.fixed_width_no_header",
@@ -88,12 +111,25 @@ def read_sou(sou_file, remove_no_estimate=True):
                               col_starts=[20, 57, 117],
                               col_ends=[41, 78, 122])
 
-    if remove_no_estimate:
-        # Remove source with 0 observation used in th solution
-        mask = (t_sou["used_obs"] != 0)
+    if drop_few_obs:
+
+        # NO. sources in the original solution
+        N0 = len(t_sou)
+
+        # Remove source with few observation used in the solution
+        mask = (t_sou["used_obs"] >= nobs_lim)
         t_sou = Table(t_sou[mask], masked=False)
-        mask = (ra_dec_table["used_obs"] != 0)
+
+        # No. sources after elimination
+        N1 = len(t_sou)
+
+        mask = (ra_dec_table["used_obs"] >= nobs_lim)
         ra_dec_table = Table(ra_dec_table[mask], masked=False)
+
+        print("There are {:d} sources in the original catalog, "
+              "{:d} ({:.0f}%) sources with #obs < {:.0f} dropped, leaving "
+              "{:d} sources in the present catalog.".format(
+                  N0, N0-N1, (N0-N1)/N0*100, nobs_lim, N1))
 
     # convert string into float for RA, Decl. and observing epoch
     Nsize = len(t_sou)
@@ -132,6 +168,11 @@ def read_sou(sou_file, remove_no_estimate=True):
     factor = np.cos(Angle(t_sou["dec"]).radian)
     t_sou["ra_err"] = t_sou["ra_err"] * factor
 
+    # Inflate the formal error
+    if flate_err:
+        t_sou["ra_err"] = inflate_sou_err(t_sou["ra_err"])
+        t_sou["dec_err"] = inflate_sou_err(t_sou["dec_err"])
+
     # Calculate the semi-major axis of error ellipse
     pos_err = pos_err_calc(t_sou["ra_err"], t_sou["dec_err"],
                            t_sou["ra_dec_corr"])
@@ -151,17 +192,23 @@ def read_sou(sou_file, remove_no_estimate=True):
     return t_sou
 
 
-def read_crf(crffile):
+def read_crf(crf_file, drop_few_obs=False, nobs_lim=3, flate_err=False):
     """Read radio source positions
 
     Parameters
     ----------
-    crffile : string
+    crf_file : string
         the full path of .cat file
+    drop_few_obs : boolean
+        flag to determine whether to remove sources with few observations
+    nobs_lim : int
+        least number of observation, meaningful only if drop_few_obs is True.
+    flate_err : boolean
+        flag to determine whether to inflate the formal error
 
     Return
     ------
-    tablecrf : astropy.table object
+    t_crf : astropy.table object
         |
         -- ivs_name : str
             IVS source name
@@ -193,10 +240,10 @@ def read_crf(crffile):
             epoch of last observation (MJD)
     """
 
-    if not os.path.isfile(crffile):
+    if not os.path.isfile(crf_file):
         sys.exit()
 
-    # tablecrf = Table.read(crffile, format="ascii.fixed_width_no_header",
+    # t_crf = Table.read(crf_file, format="ascii.fixed_width_no_header",
     #                       names=["ivs_name", "iers_name",
     #                              "ra_err", "dec_err", "ra_dec_corr",
     #                              "mean_epoch", "beg_epoch", "end_epoch",
@@ -205,65 +252,88 @@ def read_crf(crffile):
     #                                   105, 113, 121, 127, 134, 141],
     #                       col_ends=[8, 59, 74, 88, 96, 104, 112, 120, 126, 133, 140, 144])
 
-    tablecrf = Table.read(crffile, format="ascii",
-                          names=["ivs_name", "iers_name",
-                                 "ra_h", "ra_m", "ra_s",
-                                 "dec_d", "dec_m", "dec_s",
-                                 "ra_err", "dec_err", "ra_dec_corr",
-                                 "mean_epoch", "beg_epoch", "end_epoch",
-                                 "used_ses", "used_obs", "num_delrate", "flag"],
-                          exclude_names=["ra_h", "ra_m", "ra_s",
-                                         "dec_d", "dec_m", "dec_s",
-                                         "num_delrate"])
+    t_crf = Table.read(crf_file, format="ascii",
+                       names=["ivs_name", "iers_name",
+                              "ra_h", "ra_m", "ra_s",
+                              "dec_d", "dec_m", "dec_s",
+                              "ra_err", "dec_err", "ra_dec_corr",
+                              "mean_epoch", "beg_epoch", "end_epoch",
+                              "used_ses", "used_obs", "num_delrate", "flag"],
+                       exclude_names=["ra_h", "ra_m", "ra_s",
+                                      "dec_d", "dec_m", "dec_s",
+                                      "num_delrate"])
 
     # Position
-    tradec = Table.read(crffile, format="ascii.fixed_width_no_header",
-                        names=["ra_dec"],
-                        col_starts=[21], col_ends=[59])
+    tradec = Table.read(crf_file, format="ascii.fixed_width_no_header",
+                        names=["ra_dec"], col_starts=[21], col_ends=[59])
 
     radec = SkyCoord(tradec["ra_dec"], unit=(u.hourangle, u.deg))
 
     racol = Column(radec.ra.deg, name="ra", unit=u.deg)
     deccol = Column(radec.dec.deg, name="dec", unit=u.deg)
 
-    tablecrf.add_columns([racol, deccol], indexes=[2, 2])
-
-    mask = (tablecrf["used_obs"] != 0)
-    # tablecrf = Table(tablecrf[mask], masked=False)
-    tablecrf = tablecrf[mask].filled()
+    t_crf.add_columns([racol, deccol], indexes=[2, 2])
 
     # Multipliy the formal error in R.A. by a factor of cos(Decl.)
     factor = np.cos(radec.dec.radian)
-    tablecrf["ra_err"] = tablecrf["ra_err"] * factor * 15
+    t_crf["ra_err"] = t_crf["ra_err"] * factor * 15
 
-    # unit
-    tablecrf["ra_err"].unit = u.arcsecond
-    tablecrf["dec_err"].unit = u.arcsecond
-    tablecrf["mean_epoch"].unit = cds.MJD
-    tablecrf["beg_epoch"].unit = cds.MJD
-    tablecrf["end_epoch"].unit = cds.MJD
+    # Drop sources with fewer No. obs
+    if drop_few_obs:
+        # NO. sources in the original solution
+        N0 = len(t_crf)
 
-    tablecrf["ra_err"].convert_unit_to(u.mas)
-    tablecrf["dec_err"].convert_unit_to(u.mas)
+        # Remove source with 0 observation used in the solution
+        mask = (t_crf["used_obs"] >= nobs_lim)
+        t_crf = Table(t_crf[mask], masked=False)
+
+        # No. sources after elimination
+        N1 = len(t_crf)
+
+        print("There are {:d} sources in the original catalog, "
+              "{:d} ({:.0f}%) sources with #obs < {:.0f} dropped, leaving "
+              "{:d} sources in the present catalog.".format(
+                  N0, N0-N1, (N0-N1)/N0*100, nobs_lim, N1))
+
+    # Unit
+    t_crf["ra_err"].unit = u.arcsecond
+    t_crf["dec_err"].unit = u.arcsecond
+    t_crf["mean_epoch"].unit = cds.MJD
+    t_crf["beg_epoch"].unit = cds.MJD
+    t_crf["end_epoch"].unit = cds.MJD
+
+    t_crf["ra_err"].convert_unit_to(u.mas)
+    t_crf["dec_err"].convert_unit_to(u.mas)
+
+    # Inflate the formal error
+    if flate_err:
+        t_crf["ra_err"] = inflate_sou_err(t_crf["ra_err"])
+        t_crf["dec_err"] = inflate_sou_err(t_crf["dec_err"])
 
     # Calculate the semi-major axis of error ellipse
-    pos_err = pos_err_calc(tablecrf["ra_err"], tablecrf["dec_err"],
-                           tablecrf["ra_dec_corr"])
+    pos_err = pos_err_calc(t_crf["ra_err"], t_crf["dec_err"],
+                           t_crf["ra_dec_corr"])
 
     # Add the semi-major axis of error ellipse to the table
-    tablecrf.add_column(pos_err, name="pos_err", index=7)
-    # tablecrf["pos_err"].unit = u.mas
+    t_crf.add_column(pos_err, name="pos_err", index=7)
+    # t_crf["pos_err"].unit = u.mas
 
-    return tablecrf
+    return t_crf
 
 
-def read_cat(cat_file):
+def read_cat(cat_file, drop_few_obs=False, nobs_lim=3, flate_err=False):
     """Read radio source positions
 
     Parameters
     ----------
     cat_file : string
         the full path of .cat file
+    drop_few_obs : boolean
+        flag to determine whether to remove sources with few observations
+    nobs_lim : int
+        least number of observation, meaningful only if drop_few_obs is True.
+    flate_err : boolean
+        flag to determine whether to inflate the formal error
 
     Return
     ------
@@ -316,12 +386,23 @@ def read_cat(cat_file):
                    used_ses, used_obs, mean_epoch, beg_epoch, end_epoch],
                   names=["ivs_name", "iers_name",
                          "ra", "dec", "ra_err", "dec_err", "ra_dec_corr",
-                         "used_ses", "used_obs",
-                         "mean_epoch", "beg_epoch", "end_epoch"])
+                         "used_ses", "used_obs", "mean_epoch", "beg_epoch", "end_epoch"])
 
-    mask = (t_cat["used_obs"] != 0)
-    t_cat = t_cat[mask].filled()
+    if drop_few_obs:
+        # NO. sources in the original solution
+        N0 = len(t_cat)
 
+        # Remove source with 0 observation used in the solution
+        mask = (t_cat["used_obs"] >= nobs_lim)
+        t_cat = Table(t_cat[mask], masked=False)
+
+        # No. sources after elimination
+        N1 = len(t_cat)
+
+        print("There are {:d} sources in the original catalog, "
+              "{:d} ({:.0f}%) sources with #obs < {:.0f} dropped, leaving "
+              "{:d} sources in the present catalog.".format(
+                  N0, N0-N1, (N0-N1)/N0*100, nobs_lim, N1))
     # unit
     t_cat["ra"].unit = u.deg
     t_cat["dec"].unit = u.deg
@@ -330,6 +411,11 @@ def read_cat(cat_file):
     t_cat["mean_epoch"].unit = cds.MJD
     t_cat["beg_epoch"].unit = cds.MJD
     t_cat["end_epoch"].unit = cds.MJD
+
+    # Inflate the formal error
+    if flate_err:
+        t_cat["ra_err"] = inflate_sou_err(t_cat["ra_err"])
+        t_cat["dec_err"] = inflate_sou_err(t_cat["dec_err"])
 
     # Calculate the semi-major axis of error ellipse
     pos_err = pos_err_calc(t_cat["ra_err"], t_cat["dec_err"],

@@ -43,7 +43,8 @@ def vecerr_calc(par, err):
     return np.sqrt(np.dot(par**2, err**2))
 
 
-def wgtmat_calc(dx_err, dy_err, dz_err, xy_cov, xz_cov, yz_cov):
+def wgtmat_calc(dx_err, dy_err, dz_err,
+                xy_cov, xz_cov, yz_cov):
     """Generate the weighted matrix.
 
     Parameters

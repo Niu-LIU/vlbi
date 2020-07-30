@@ -84,18 +84,18 @@ def read_rms(rmsfile):
                           data_start=3,
                           col_starts=[10, 22, 31, 48],
                           col_ends=[20, 28, 42, 58],
-                          names=["sess_name", "obs_num", "delay_rms", "delay_rate_rms"])
+                          names=["db_name", "obs_num", "delay_rms", "delay_rate_rms"])
 
     # Add unit information
     rmstable["delay_rms"].unit = u.second / 1e12
     rmstable["delay_rate_rms"].unit = 1 / 1e15
 
     # Calculate the epoch
-    epo = [calc_sess_epoch_from_name(db) for db in rmstable["sess_name"]]
+    epo = [calc_sess_epoch_from_name(db) for db in rmstable["db_name"]]
 
-    epo_col = Column(np.array(epo) << u.yr, name="epoch")
+    epo_col = Column(np.array(epo) << u.yr, name="ses_epo")
     rmstable.add_column(epo_col, index=0)
-    rmstable.sort(["epoch"])
+    rmstable.sort(["ses_epo"])
 
     return rmstable
 

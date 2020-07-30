@@ -47,93 +47,193 @@ order of sessions and in order of appearance of local sources in the session.
 
 """
 
+from astropy.table import Table, Column, join
+import astropy.units as u
+from astropy.coordinates import Angle
 import numpy as np
 import sys
-from pos_conv import RA_conv, DC_conv
-from get_pv import get_dat, get_sou_pv
-from write_pv import write_sou_pv
-from plot_data import plot_sou_pv
+from astropy.time import Time
+
+# My modules
+# from .get_pv import get_dat, get_sou_pv
+# from .write_pv import write_sou_pv
+# from .plot_data import plot_sou_pv
+from .convert_func import RA_conv, DC_conv
+from .sou_name import get_souname
+
+__all__ = ["read_lso", "write_ts"]
 
 
 # ------------------------------  FUNCTIONS  ---------------------------
-def wp_sou_pos(souname, soulist, epo, dbname,
-               RA, DC, RA_err, DC_err, cor):
-    '''write and plot the positions/proper-motions of each sources.
+# def wp_sou_pos(souname, soulist, epo, dbname, RA, DC, RA_err, DC_err, cor):
+#     """write and plot the positions/proper-motions of each sources.
+#
+#     Parameters
+#     ----------
+#     lso_file : string
+#         name of data file
+#     souname : array, string
+#         IVS source name
+#     soulist : array, string
+#         list of all source names in all sessions
+#     epo : array, float
+#         time lag, year
+#     dbname : array, string
+#         database name with leading dollar sign
+#     RA : array, float
+#         Right ascension, degree
+#     RA_err : array, float
+#         formal uncertainty of RA, mas
+#     DC : array, float
+#         Declination, degree
+#     DC_err : array, float
+#         formal uncertainty of DC, mas
+#     Cor : array, float
+#         correlation between RA and DC
+#
+#     Returns
+#     ----------
+#       None.
+#     """
+#
+#     eposou = get_dat(souname, soulist, epo)
+#
+#     # For geocentric position
+#     [RAsou, DCsou, RAsou_err, DCsou_err, corsou] = get_sou_pv(
+#         souname, soulist, RA, DC, RA_err, DC_err, cor)
+#     write_sou_pv(souname, eposou,
+#                  RAsou, DCsou, RAsou_err, DCsou_err, corsou, 'P')
+#     plot_sou_pv(souname, eposou,
+#                 RAsou, DCsou, RAsou_err, DCsou_err, 'P')
+
+
+def read_lso_old(lso_file):
+    """Retrieve the result from .lso file.
 
     Parameters
     ----------
-    datafile : string
-        name of data file
-    souname : array, string
-        IVS source name
-    soulist : array, string
-        list of all source names in all sessions
-    epo : array, float
-        time lag, year
-    dbname : array, string
-        database name with leading dollar sign
-    RA : array, float
-        Right ascension, degree
-    RA_err : array, float
-        formal uncertainty of RA, mas
-    DC : array, float
-        Declination, degree
-    DC_err : array, float
-        formal uncertainty of DC, mas
-    Cor : array, float
-        correlation between RA and DC
-
-    Returns
-    ----------
-      None.
-    '''
-    eposou = get_dat(souname, soulist, epo)
-
-    # For geocentric position
-    [RAsou, DCsou, RAsou_err, DCsou_err, corsou] = get_sou_pv(
-        souname, soulist, RA, DC, RA_err, DC_err, cor)
-    write_sou_pv(souname, eposou,
-                 RAsou, DCsou, RAsou_err, DCsou_err, corsou, 'P')
-    plot_sou_pv(souname, eposou,
-                RAsou, DCsou, RAsou_err, DCsou_err, 'P')
-
-
-def read_lso(datafile):
-    '''Retrieve the result from .lso file.
-
-    Parameters
-    ----------
-    datafile: string
+    lso_file: string
         name of data file
 
     Returns
     ----------
     None
-    '''
+    """
 
-    soulist, dbname = np.genfromtxt(datafile,
-                                    dtype=str, usecols=(1, 2), unpack=True)
-    epo = np.genfromtxt(datafile, usecols=(5,))
-    RA, RA_err, DC, DC_err, cor = np.genfromtxt(
-        datafile, usecols=np.arange(7, 16, 2),
-        converters={7: RA_conv, 11: DC_conv},
-        missing_values='*'*8,
-        filling_values=0.,
-        unpack=True)
+    soulist, dbname = np.genfromtxt(lso_file, dtype=str, usecols=(1, 2), unpack=True)
 
-    NOUsed, NOTotal = np.genfromtxt(
-        datafile, usecols=(17, 19), dtype=int, unpack=True)
+    epo = np.genfromtxt(lso_file, usecols=(5,))
+
+    dat = np.genfromtxt(lso_file, usecols=np.arange(7, 16, 2),
+                        converters={7: RA_conv, 11: DC_conv},
+                        missing_values='*'*8, filling_values=0., unpack=True)
+    RA, RA_err, DC, DC_err, cor = dat
+
+    NOUsed, NOTotal = np.genfromtxt(lso_file, usecols=(17, 19), dtype=int, unpack=True)
 
     souset = set(soulist)
+
     for souname in souset:
-        wp_sou_pos(souname, soulist, epo, dbname,
-                   RA, DC, RA_err, DC_err, cor)
+        wp_sou_pos(souname, soulist, epo, dbname, RA, DC, RA_err, DC_err, cor)
 
 
-# Retrieve estimates.
-# if len(sys.argv) == 1:
-#     datafile = 'result/test.lso'
-# else:
-#     datafile = sys.argv[1]
-# read_lso(datafile)
+def read_lso(lso_file, remove_no_estimate=False):
+    """Retrieve the result from .lso file.
+
+    Parameters
+    ----------
+    lso_file: string
+        name of data file
+
+    Returns
+    ----------
+    None
+    """
+
+    t_lso = Table.read(lso_file, format="ascii.fixed_width_no_header",
+                       names=["ivs_name", "db_name", "epoch",
+                              "ra_err", "dec_err", "ra_dec_corr",
+                              "used_obs", "all_obs"],
+                       col_starts=[10, 21, 46, 83, 120, 137, 150, 158],
+                       col_ends=[18, 30, 56, 93, 130, 144, 154, 161])
+
+    ra_dec_table = Table.read(lso_file, format="ascii.fixed_width_no_header",
+                              names=["ra", "dec", "used_obs"],
+                              col_starts=[58, 95, 150], col_ends=[79, 116, 154])
+
+    # Remove source with 0 observation used in th solution
+    if remove_no_estimate:
+        mask = (t_lso["used_obs"] != 0)
+        t_lso = Table(t_lso[mask], masked=False)
+        mask = (ra_dec_table["used_obs"] != 0)
+        ra_dec_table = Table(ra_dec_table[mask], masked=False)
+
+    # convert string into float for RA, Decl. and observing epoch
+    Nsize = len(t_lso)
+    ra = np.empty(shape=(Nsize,), dtype=float)
+    dec = np.empty(shape=(Nsize,), dtype=float)
+
+    for i, ra_dec_tablei in enumerate(ra_dec_table):
+        ra[i] = RA_conv(ra_dec_tablei["ra"])
+        dec[i] = DC_conv(ra_dec_tablei["dec"])
+
+    # replace original columns with new columns
+    ra = Column(ra, name="ra", unit=u.deg)
+    dec = Column(dec, name="dec", unit=u.deg)
+
+    t_lso.add_columns([ra, dec], indexes=[3, 4])
+
+    # Add unit information
+    t_lso["ra_err"].unit = u.mas
+    t_lso["dec_err"].unit = u.mas
+
+    # Multipliy the formal error in R.A. by a factor of cos(Decl.)
+    factor = np.cos(Angle(t_lso["dec"]).radian)
+    t_lso["ra_err"] = t_lso["ra_err"] * factor
+
+    # Add IERS and ICRF designations of source names
+    tsouname = get_souname()
+    t_lso = join(tsouname, t_lso, keys="ivs_name", join_type="right")
+
+    # Fill the empty filed of IERS name by the IVS name
+    for i in t_lso["iers_name"].mask.nonzero()[0]:
+        t_lso[i]["iers_name"] = t_lso[i]["ivs_name"]
+
+    return t_lso
+
+
+def write_ts(soutab, datadir=""):
+    """Write radio source coordinate time series as Sebastien does.
+    """
+
+    # Epoch: year -> mjd
+    epoch = Time(soutab["epoch"], format="jyear")
+    soutab["epoch"] = epoch.mjd
+
+    # source name
+    souname = soutab["iers_name"][0]
+
+    soutab.meta["comments"] = ["-----------------------------------------------"
+                               "------------------------------------------------"
+                               "------------",
+                               "                  R.A. (o)          Dec. (o)   "
+                               "     Err. (mas)     Corr. Del.       IERS      IVS",
+                               "----------------------------------------------------"
+                               "-------------------------------------------------------"]
+
+    soutab = soutab["epoch", "ra", "dec", "ra_err", "dec_err", "ra_dec_corr",
+                    "used_obs", "iers_name", "ivs_name", "db_name"]
+
+    soutab.write("{:s}/{:s}.txt".format(datadir, souname),
+                 format="ascii.fixed_width_no_header",
+                 formats={"epoch": "%.3f",
+                          "ra": "%15.12f", "dec": "%16.12f",
+                          "ra_err": "%8.4f", "dec_err": "%8.4f",
+                          "ra_dec_corr": "%6.3f", "used_obs": "%3d",
+                          "iers_name": "%9s", "ivs_name": "%8s", "db_name": "%10s"},
+                 delimiter="", overwrite=True)
+
+
+if __name__ == "__main__":
+    read_sou(sys.argv[1])
 # ------------------------------ END -----------------------------------

@@ -29,7 +29,7 @@ def get_souname():
 
     Parameters
     ----------
-    Nonec
+    None
 
     Returns
     -------
