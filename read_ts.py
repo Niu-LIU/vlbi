@@ -19,7 +19,6 @@ from my_progs.catalog.read_icrf import read_icrf3
 from my_progs.catalog.pos_diff import pa_calc
 
 
-
 # -----------------------------  FUNCTIONS -----------------------------
 def mjd2mjy(mjd):
     """Convert MJD to MJY.
@@ -194,11 +193,11 @@ def calc_ts_oft(souname, coordts):
     pos = get_icrf3_pos(souname)
     #
     if pos is False:
-        ra0 = np.mean(coordts["ra"])
-        dec0 = np.mean(coordts["dec"])
-    else:
         ra0 = pos["ra"]
         dec0 = pos["dec"]
+    else:
+        ra0 = np.mean(coordts["ra"])
+        dec0 = np.mean(coordts["dec"])
 
     dra = coordts["ra"] - ra0
     ddec = coordts["dec"] - dec0
