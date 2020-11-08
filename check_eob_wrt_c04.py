@@ -11,23 +11,27 @@ Calculate the apriori EOP based C04 series.
 History
 14/06/2018 : print differences of EOP and Nutation parameters into a
              single file
+07/11/2020 : Add functions for plotting offset series
 """
 
+
+from .get_dir import get_data_dir
+from .delta_tai_utc import delta_tai_utc_calc
+import numpy as np
+import os
+import time
+import sys
+from sys import platform as _platform
+
+import matplotlib.pyplot as plt
 from astropy.table import Table, Column, join
 from astropy import units as u
 from astropy.units import cds
-import numpy as np
-import os
 import requests
 from scipy.interpolate import CubicSpline
-import sys
-from sys import platform as _platform
-import time
-
 # My module
-from .delta_tai_utc import delta_tai_utc_calc
-from .get_dir import get_data_dir
-
+# from my_progs.stat_func.rms_calc import rms_calc
+from ..stat_func.rms_calc import rms_calc
 
 __all__ = {"read_c04", "calc_c04_apr", "calc_c04_offset"}
 
@@ -47,6 +51,7 @@ def download_c04():
                 f.write(chunk)
 
     print("Download C04 file successfully.")
+
 
 def read_c04(c04_file=None):
     """Read EOP from C04 series.
@@ -285,8 +290,7 @@ def interpolate_nut(epoch_nut, epoch_c04, dX_c04, dY_c04):
         if ind == 0 or ind >= epoch_c04.size:
             # normally it won't happen!!
             print("The epoch %f was too early or too late"
-                  " for the C04 series." % epoch_nut[    # t_eob["ut1_tai"] = t_eob["ut1_tai"] * 15e6
-                      i])
+                  " for the C04 series." % epoch_nut[i])
             sys.exit()
 
         elif ind < 9 or epoch_c04.size - ind < 10:
@@ -523,6 +527,151 @@ def calc_c04_offset(t_eob, aprfile=None, oftfile=None):
                     delimiter="", overwrite=True)
 
     return t_eob_oft
+
+
+def c04_pm_offset_plot(t_eob_oft, fig_file="C04_pm_offset.png"):
+    """Plot polar motion offset of VLBI solution wrt. C04
+    """
+
+    # Create a Time object for epochs of polar motion
+    # which is convenient to convert unit from mjd to jyear
+    pm_epoch = Time(t_eob_oft["epoch_pmr"], format="mjd")
+    pm_epoch = pm_epoch.jyear
+
+    # Polar motion difference
+    fig, (ax0, ax1) = plt.subplots(figsize=(12, 4), sharex=True, nrows=2)
+
+    # Error bar plot
+    ax0.errorbar(pm_epoch.jyear, t_eob_oft["dxp_c04"], yerr=t_eob_oft["xp_err"]*1e3,
+                 fmt="b.", ms=1, elinewidth=0.1, ecolor="k", errorevery=5)
+    ax1.errorbar(pm_epoch.jyear, t_eob_oft["dyp_c04"], yerr=t_eob_oft["yp_err"]*1e3,
+                 fmt="b.", ms=1, elinewidth=0.1, ecolor="k", errorevery=5)
+
+    # Limits
+    ax0.axis([1979, 2020, -4000, 4000])
+    ax1.set_ylim([-4000, 4000])
+
+    # Titles and Labels
+    ax0.set_title("Polar motion wrt. IERS 14 C04")
+    ax0.set_ylabel("$\Delta x_p\,(\mu as)$")
+    ax1.set_ylabel("$\Delta y_p\,(\mu as)$")
+
+    plt.tight_layout()
+    plt.subplots_adjust(hspace=0.1)
+    plt.savefig(fig_file)
+
+
+def c04_ut1_offset_plot(t_eob_oft, fig_file="C04_ut1_offset.png"):
+    """Plot UT1 offset of VLBI solution wrt. C04
+    """
+
+    # Create a Time object for epochs of UT1，
+    # which is convenient to convert unit from mjd to jyear
+    ut_epoch = Time(t_eob_oft["epoch_pmr"], format="mjd")
+    ut_epoch = ut_epoch.jyear
+
+    # UT1 difference
+    fig, ax = plt.subplots(figsize=(12, 3))
+
+    # Error bar plot
+    ax.errorbar(ut_epoch, t_eob_oft["dut_c04"], yerr=t_eob_oft["ut1_err"]*1e3,
+                fmt="b.", ms=1, elinewidth=0.1, ecolor="k", errorevery=5)
+
+    # Limits
+    ax.axis([1979, 2020, -500, 500])
+
+    # Titles and Labels
+    ax.set_title("UT1 wrt. IERS 14 C04")
+    ax.set_ylabel("$\Delta UT1\,(\mu s)$")
+
+    plt.tight_layout()
+    plt.savefig(fig_file)
+
+
+def c04_lod_offset_plot(t_eob_oft, fig_file="C04_lod_offset.png"):
+    """Plot LOD offset of VLBI solution wrt. C04
+    """
+
+    # Create a Time object for epochs of UT1，
+    # which is convenient to convert unit from mjd to jyear
+    ld_epoch = Time(t_eob_oft["epoch_nut"], format="mjd")
+    ld_epoch = ld_epoch.jyear
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(12, 3))
+
+    # Error bar plot
+    ax.errorbar(ld_epoch, t_eob_oft["dlod_c04"], yerr=t_eob_oft["lod_err"],
+                fmt="b.", ms=1, elinewidth=0.05, ecolor="k")
+    # Limits
+    ax.axis([1979, 2020, -8000, 4000])
+    # ax.set_ylim([-1000, 1000])
+
+    # Titles and Labels
+    ax.set_title("Excess of the length-of-day")
+    ax.set_ylabel("$\Delta LOD\,(\mu s)$")
+    ax.set_xlabel("Year")
+
+    plt.tight_layout()
+    plt.savefig(fig_file)
+
+
+def c04_nut_offset_plot(t_eob_oft, fig_file="C04_nut_offset.png"):
+    """Plot Nutation (CPO) offset of VLBI solution wrt. C04
+    """
+
+    # Create a Time object for epochs of UT1，
+    # which is convenient to convert unit from mjd to jyear
+    pn_epoch = Time(t_eob_oft["epoch_nut"], format="mjd")
+    pn_epoch = pn_epoch.jyear
+
+    # Plot
+    fig, (ax0, ax1) = plt.subplots(figsize=(12, 4), sharex=True, nrows=2)
+
+    # Error bar plot
+    ax0.errorbar(pn_epoch, t_eob_oft["ddX_c04"], yerr=t_eob_oft["dX_err"],
+                 fmt="b.", ms=1, elinewidth=0.05, ecolor="k")
+    ax1.errorbar(pn_epoch, t_eob_oft["ddY_c04"], yerr=t_eob_oft["dY_err"],
+                 fmt="b.", ms=1, elinewidth=0.05, ecolor="k")
+
+    # Limits
+    ax0.axis([1979, 2020, -1000, 1000])
+    ax1.set_ylim([-1000, 1000])
+
+    # Titles and Labels
+    ax0.set_title("Nutation offset wrt. IERS 14 C04")
+    ax0.set_ylabel("$\Delta dX\,(\mu as)$")
+    ax1.set_ylabel("$\Delta dY\,(\mu as)$")
+    ax1.set_xlabel("Year")
+
+    plt.tight_layout()
+    plt.subplots_adjust(hspace=0.1)
+    plt.savefig(fig_file)
+
+
+def c04_eob_offset_plot(t_eob_oft, tag=[""], fig_file=[""]):
+    """
+    """
+
+    if len(tag) != len(fig_file):
+        print("The length of 'tag' and 'fig_file' must be equal!")
+        sys.exit()
+
+    if "pm" in tag:
+        c04_pm_offset_plot(t_eob_oft, fig_file[tag.index("pm")])
+        print("Plot of polar motion offset wrt. C04:", fig_file[tag.index("pm")])
+
+    if "ut1" in tag:
+        c04_ut1_offset_plot(t_eob_oft, fig_file[tag.index("ut1")])
+        print("Plot of UT1 offset wrt. C04:", fig_file[tag.index("ut1")])
+
+    if "lod" in tag:
+        c04_lod_offset_plot(t_eob_oft, fig_file[tag.index("lod")])
+        print("Plot of LOD offset wrt. C04:", fig_file[tag.index("lod")])
+
+    if "nut" in tag:
+        c04_nut_offset_plot(t_eob_oft, fig_file[tag.index("nut")])
+        print("Plot of Nutation offset wrt. C04:", fig_file[tag.index("nut")])
 
 
 # --------------------------------- MAIN -------------------------------
