@@ -13,9 +13,8 @@ from sys import platform as _platform
 
 __all__ = ["get_home_dir", "get_data_dir"]
 
+
 # -------------------- FUNCTIONS --------------------
-
-
 def get_home_dir():
     """Get the path of home directory.
 

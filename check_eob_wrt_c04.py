@@ -15,8 +15,6 @@ History
 """
 
 
-from .get_dir import get_data_dir
-from .delta_tai_utc import delta_tai_utc_calc
 import numpy as np
 import os
 import time
@@ -24,14 +22,18 @@ import sys
 from sys import platform as _platform
 
 import matplotlib.pyplot as plt
+from astropy.time import Time
 from astropy.table import Table, Column, join
 from astropy import units as u
 from astropy.units import cds
 import requests
 from scipy.interpolate import CubicSpline
+
 # My module
 # from my_progs.stat_func.rms_calc import rms_calc
 from ..stat_func.rms_calc import rms_calc
+from .get_dir import get_data_dir
+from .delta_tai_utc import delta_tai_utc_calc
 
 __all__ = {"read_c04", "calc_c04_apr", "calc_c04_offset"}
 
@@ -41,14 +43,19 @@ def download_c04():
     """Download the C04 file
     """
 
+    datadir = get_data_dir()
+    c04_file = "{}/eopc04_IAU2000.62-now".format(datadir)
+
     c04_url = "http://hpiers.obspm.fr/iers/eop/eopc04/eopc04_IAU2000.62-now"
 
-    r = requests.get(c04_url, stream=True)
+    r_data = requests.get(c04_url, stream=True)
 
-    with open("../aux_files/eopc04_IAU2000.62-now", "w") as f:
-        for chunk in r.iter_content(chunk_size=1024):
+    with open(c04_file, "w") as f_c04:
+        for chunk in r_data.iter_content(chunk_size=1024):
             if chunk:
-                f.write(chunk)
+                f_c04.write(chunk)
+
+    f_c04.close()
 
     print("Download C04 file successfully.")
 
@@ -213,11 +220,11 @@ def interpolate_pmr(epoch_pmr, epoch_c04, xp_c04, yp_c04, ut_c04, lod_c04):
     insert_ind_sort = np.sort(insert_ind)
     if insert_ind_sort[0] == 0:
         # normally it won't happen!!
-        print("The epoch %f is too early for the C04 series." % epoch_pmr[i])
+        print("The epoch %f is too early for the C04 series." % epoch_pmr[0])
         sys.exit()
     elif insert_ind_sort[-1] >= epoch_c04.size:
         print("The epoch %f is too late for the C04 series "
-              "so that we need to renew the C04 file." % epoch_pmr[i])
+              "so that we need to renew the C04 file." % epoch_pmr[-1])
         download_c04()
 
         insert_ind = np.searchsorted(epoch_c04, epoch_pmr)
@@ -539,22 +546,24 @@ def c04_pm_offset_plot(t_eob_oft, fig_file="C04_pm_offset.png"):
     pm_epoch = pm_epoch.jyear
 
     # Polar motion difference
-    fig, (ax0, ax1) = plt.subplots(figsize=(12, 4), sharex=True, nrows=2)
+    fig, (ax0, ax1) = plt.subplots(figsize=(12, 4), sharex=True, sharey=True, nrows=2)
 
     # Error bar plot
-    ax0.errorbar(pm_epoch.jyear, t_eob_oft["dxp_c04"], yerr=t_eob_oft["xp_err"]*1e3,
+    ax0.errorbar(pm_epoch, t_eob_oft["dxp_c04"]/1e3, yerr=t_eob_oft["xp_err"],
                  fmt="b.", ms=1, elinewidth=0.1, ecolor="k", errorevery=5)
-    ax1.errorbar(pm_epoch.jyear, t_eob_oft["dyp_c04"], yerr=t_eob_oft["yp_err"]*1e3,
+    ax1.errorbar(pm_epoch, t_eob_oft["dyp_c04"]/1e3, yerr=t_eob_oft["yp_err"],
                  fmt="b.", ms=1, elinewidth=0.1, ecolor="k", errorevery=5)
 
     # Limits
-    ax0.axis([1979, 2020, -4000, 4000])
-    ax1.set_ylim([-4000, 4000])
+    ax0.axis([1979, 2020, -1, 1])
+    # ax1.set_ylim([-5, 5])
 
     # Titles and Labels
     ax0.set_title("Polar motion wrt. IERS 14 C04")
-    ax0.set_ylabel("$\Delta x_p\,(\mu as)$")
-    ax1.set_ylabel("$\Delta y_p\,(\mu as)$")
+    # ax0.set_ylabel("$\Delta x_p\,(\mu as)$")
+    # ax1.set_ylabel("$\Delta y_p\,(\mu as)$")
+    ax0.set_ylabel("$\Delta x_p$ (mas)")
+    ax1.set_ylabel("$\Delta y_p$ (mas)")
 
     plt.tight_layout()
     plt.subplots_adjust(hspace=0.1)
@@ -574,15 +583,16 @@ def c04_ut1_offset_plot(t_eob_oft, fig_file="C04_ut1_offset.png"):
     fig, ax = plt.subplots(figsize=(12, 3))
 
     # Error bar plot
-    ax.errorbar(ut_epoch, t_eob_oft["dut_c04"], yerr=t_eob_oft["ut1_err"]*1e3,
+    ax.errorbar(ut_epoch, t_eob_oft["dut_c04"]/1e3, yerr=t_eob_oft["ut1_err"],
                 fmt="b.", ms=1, elinewidth=0.1, ecolor="k", errorevery=5)
 
     # Limits
-    ax.axis([1979, 2020, -500, 500])
+    ax.axis([1979, 2020, -0.5, 0.5])
 
     # Titles and Labels
     ax.set_title("UT1 wrt. IERS 14 C04")
-    ax.set_ylabel("$\Delta UT1\,(\mu s)$")
+    # ax.set_ylabel("$\Delta UT1\,(\mu s)$")
+    ax.set_ylabel("$\Delta UT1$ (ms)")
 
     plt.tight_layout()
     plt.savefig(fig_file)
@@ -601,15 +611,15 @@ def c04_lod_offset_plot(t_eob_oft, fig_file="C04_lod_offset.png"):
     fig, ax = plt.subplots(figsize=(12, 3))
 
     # Error bar plot
-    ax.errorbar(ld_epoch, t_eob_oft["dlod_c04"], yerr=t_eob_oft["lod_err"],
+    ax.errorbar(ld_epoch, t_eob_oft["dlod_c04"]/1e3, yerr=t_eob_oft["lod_err"]/1e3,
                 fmt="b.", ms=1, elinewidth=0.05, ecolor="k")
     # Limits
-    ax.axis([1979, 2020, -8000, 4000])
+    ax.axis([1979, 2020, -8, 4])
     # ax.set_ylim([-1000, 1000])
 
     # Titles and Labels
     ax.set_title("Excess of the length-of-day")
-    ax.set_ylabel("$\Delta LOD\,(\mu s)$")
+    ax.set_ylabel("$\Delta LOD$ (ms)")
     ax.set_xlabel("Year")
 
     plt.tight_layout()
@@ -626,22 +636,24 @@ def c04_nut_offset_plot(t_eob_oft, fig_file="C04_nut_offset.png"):
     pn_epoch = pn_epoch.jyear
 
     # Plot
-    fig, (ax0, ax1) = plt.subplots(figsize=(12, 4), sharex=True, nrows=2)
+    fig, (ax0, ax1) = plt.subplots(figsize=(12, 4), sharex=True, sharey=True, nrows=2)
 
     # Error bar plot
-    ax0.errorbar(pn_epoch, t_eob_oft["ddX_c04"], yerr=t_eob_oft["dX_err"],
+    ax0.errorbar(pn_epoch, t_eob_oft["ddX_c04"]/1e3, yerr=t_eob_oft["dX_err"]/1e3,
                  fmt="b.", ms=1, elinewidth=0.05, ecolor="k")
-    ax1.errorbar(pn_epoch, t_eob_oft["ddY_c04"], yerr=t_eob_oft["dY_err"],
+    ax1.errorbar(pn_epoch, t_eob_oft["ddY_c04"]/1e3, yerr=t_eob_oft["dY_err"]/1e3,
                  fmt="b.", ms=1, elinewidth=0.05, ecolor="k")
 
     # Limits
-    ax0.axis([1979, 2020, -1000, 1000])
-    ax1.set_ylim([-1000, 1000])
+    ax0.axis([1979, 2020, -1, 1])
+    # ax1.set_ylim([-1000, 1000])
 
     # Titles and Labels
     ax0.set_title("Nutation offset wrt. IERS 14 C04")
-    ax0.set_ylabel("$\Delta dX\,(\mu as)$")
-    ax1.set_ylabel("$\Delta dY\,(\mu as)$")
+    # ax0.set_ylabel("$\Delta dX\,(\mu as)$")
+    # ax1.set_ylabel("$\Delta dY\,(\mu as)$")
+    ax0.set_ylabel("$\Delta dX$ (mas)")
+    ax1.set_ylabel("$\Delta dY$ (mas)")
     ax1.set_xlabel("Year")
 
     plt.tight_layout()

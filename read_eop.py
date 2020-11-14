@@ -80,13 +80,14 @@ for its value and formal uncertainty is replaced by filler: $$$$$$. The filler
 takes entire field.
 """
 
-from astropy.table import Table, Column
-from astropy import units as u
-from astropy.units import cds
+
 import numpy as np
 import sys
 import os
 
+from astropy.table import Table, Column
+from astropy import units as u
+from astropy.units import cds
 
 __all__ = {"read_eop", "read_eob", "read_eops"}
 
@@ -204,6 +205,9 @@ def read_eop(eop_file):
     mask = ((t_eop["xp_err"] != 0) & (t_eop["yp_err"] != 0)
             & (t_eop["ut1_err"] != 0))
     t_eop = Table(t_eop[mask], masked=False)
+
+    # Sort the eob series chronologically
+    t_eop.sort("epoch_pmr")
 
     return t_eop
 
@@ -344,6 +348,9 @@ def read_eob(eob_file):
             & (t_eob["dY_err"] != 0))
     t_eob = Table(t_eob[mask], masked=False)
 
+    # Sort the eob series chronologically
+    t_eob.sort("epoch_pmr")
+
     return t_eob
 
 
@@ -473,6 +480,9 @@ def read_eops(eops_file):
             & (t_eops["ut1_err"] != 0) & (t_eops["dX_err"] != 0)
             & (t_eops["dY_err"] != 0))
     t_eops = Table(t_eops[mask], masked=False)
+
+    # Sort the eob series chronologically
+    t_eops.sort("epoch_pmr")
 
     return t_eops
 
